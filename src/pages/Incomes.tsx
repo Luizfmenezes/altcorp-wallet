@@ -66,100 +66,105 @@ const Incomes: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24 md:pt-16 md:pb-8">
       {/* Header */}
-      <header className="bg-primary text-primary-foreground p-6 pb-8 rounded-b-3xl">
-        <h1 className="text-xl font-bold text-center tracking-wide">
-          RENDAS
-        </h1>
-        <p className="text-center text-primary-foreground/80 text-sm mt-1">
-          {getMonthName(selectedMonth)} {selectedYear}
-        </p>
+      <header className="bg-primary text-primary-foreground p-6 pb-8 rounded-b-3xl md:rounded-none">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-xl md:text-2xl font-bold text-center tracking-wide">
+            RENDAS
+          </h1>
+          <p className="text-center text-primary-foreground/80 text-sm mt-1">
+            {getMonthName(selectedMonth)} {selectedYear}
+          </p>
+        </div>
       </header>
 
       {/* Content */}
-      <div className="px-4 -mt-4 space-y-6">
-        {/* Fixed Incomes */}
-        <section className="card-finance animate-fade-in">
-          <div className="flex items-center gap-2 mb-4">
-            <Banknote className="w-5 h-5 text-primary" />
-            <h2 className="font-semibold text-foreground">Renda Mensal</h2>
-          </div>
-          
-          {fixedIncomes.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhuma renda fixa cadastrada
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {fixedIncomes.map((income) => (
-                <div
-                  key={income.id}
-                  className="flex items-center justify-between p-3 bg-secondary/50 rounded-xl"
-                >
-                  <div>
-                    <p className="font-medium text-foreground">{income.description}</p>
-                    <p className="text-sm text-success font-semibold">
-                      {formatCurrency(income.amount)}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRemoveIncome(income.id)}
-                    className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
+      <div className="px-4 md:px-6 lg:px-8 -mt-4 space-y-6 max-w-7xl mx-auto">
+        {/* Grid for larger screens */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Fixed Incomes */}
+          <section className="card-finance animate-fade-in">
+            <div className="flex items-center gap-2 mb-4">
+              <Banknote className="w-5 h-5 text-primary" />
+              <h2 className="font-semibold text-foreground">Renda Mensal</h2>
             </div>
-          )}
-        </section>
+            
+            {fixedIncomes.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Nenhuma renda fixa cadastrada
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {fixedIncomes.map((income) => (
+                  <div
+                    key={income.id}
+                    className="flex items-center justify-between p-3 bg-secondary/50 rounded-xl"
+                  >
+                    <div>
+                      <p className="font-medium text-foreground">{income.description}</p>
+                      <p className="text-sm text-success font-semibold">
+                        {formatCurrency(income.amount)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveIncome(income.id)}
+                      className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
 
-        {/* Extra Incomes */}
-        <section className="card-finance animate-fade-in" style={{ animationDelay: '0.1s' }}>
-          <div className="flex items-center gap-2 mb-4">
-            <Gift className="w-5 h-5 text-warning" />
-            <h2 className="font-semibold text-foreground">Renda Extra</h2>
-          </div>
-          
-          {extraIncomes.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhuma renda extra neste mês
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {extraIncomes.map((income) => (
-                <div
-                  key={income.id}
-                  className="flex items-center justify-between p-3 bg-secondary/50 rounded-xl"
-                >
-                  <div>
-                    <p className="font-medium text-foreground">{income.description}</p>
-                    <p className="text-sm text-warning font-semibold">
-                      {formatCurrency(income.amount)}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRemoveIncome(income.id)}
-                    className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
+          {/* Extra Incomes */}
+          <section className="card-finance animate-fade-in" style={{ animationDelay: '0.1s' }}>
+            <div className="flex items-center gap-2 mb-4">
+              <Gift className="w-5 h-5 text-warning" />
+              <h2 className="font-semibold text-foreground">Renda Extra</h2>
             </div>
-          )}
-        </section>
+            
+            {extraIncomes.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Nenhuma renda extra neste mês
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {extraIncomes.map((income) => (
+                  <div
+                    key={income.id}
+                    className="flex items-center justify-between p-3 bg-secondary/50 rounded-xl"
+                  >
+                    <div>
+                      <p className="font-medium text-foreground">{income.description}</p>
+                      <p className="text-sm text-warning font-semibold">
+                        {formatCurrency(income.amount)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveIncome(income.id)}
+                      className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
 
       {/* Add Income Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogTrigger asChild>
-          <button className="floating-button shadow-floating">
+          <button className="floating-button shadow-floating md:bottom-8 md:right-8">
             <Plus className="w-6 h-6" />
           </button>
         </DialogTrigger>
