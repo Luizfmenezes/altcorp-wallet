@@ -160,30 +160,32 @@ const CardDetail: React.FC = () => {
         className="text-white p-6 pb-8 rounded-b-3xl"
         style={{ backgroundColor: card.color }}
       >
-        <div className="flex items-center gap-4 mb-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/wallet')}
-            className="text-white hover:bg-white/20"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">{card.name}</h1>
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center gap-4 mb-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/wallet')}
+              className="text-white hover:bg-white/20"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="flex-1">
+              <h1 className="text-xl md:text-2xl font-bold">{card.name}</h1>
+            </div>
+            {getCardIcon(card.type)}
           </div>
-          {getCardIcon(card.type)}
-        </div>
-        <div className="bg-white/20 rounded-2xl p-4">
-          <p className="text-white/80 text-sm">Total da Fatura</p>
-          <p className="text-2xl font-bold">{formatCurrency(totalAmount)}</p>
+          <div className="bg-white/20 rounded-2xl p-4 md:max-w-md">
+            <p className="text-white/80 text-sm">Total da Fatura</p>
+            <p className="text-2xl md:text-3xl font-bold">{formatCurrency(totalAmount)}</p>
+          </div>
         </div>
       </header>
 
       {/* Content */}
-      <div className="px-4 -mt-4 space-y-4">
+      <div className="px-4 md:px-6 lg:px-8 -mt-4 space-y-4 max-w-7xl mx-auto">
         {/* Action Buttons */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 md:max-w-md">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="flex-1 h-12 rounded-xl">
@@ -281,7 +283,7 @@ const CardDetail: React.FC = () => {
               Nenhum item na fatura
             </p>
           ) : (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 md:gap-3">
               {card.invoiceItems.map((item, index) => (
                 <div
                   key={item.id}

@@ -81,16 +81,18 @@ const Wallet: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24 md:pt-16 md:pb-8">
       {/* Header */}
-      <header className="bg-primary text-primary-foreground p-6 pb-8 rounded-b-3xl">
-        <h1 className="text-xl font-bold text-center tracking-wide">
-          CARTÕES E BANCOS
-        </h1>
+      <header className="bg-primary text-primary-foreground p-6 pb-8 rounded-b-3xl md:rounded-none">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-xl md:text-2xl font-bold text-center tracking-wide">
+            CARTÕES E BANCOS
+          </h1>
+        </div>
       </header>
 
       {/* Content */}
-      <div className="px-4 -mt-4 space-y-3">
+      <div className="px-4 md:px-6 lg:px-8 -mt-4 max-w-7xl mx-auto">
         {cards.length === 0 ? (
           <div className="card-finance text-center py-8 animate-fade-in">
             <CreditCard className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
@@ -99,40 +101,42 @@ const Wallet: React.FC = () => {
             </p>
           </div>
         ) : (
-          cards.map((card, index) => (
-            <button
-              key={card.id}
-              onClick={() => navigate(`/wallet/${card.id}`)}
-              className="w-full card-finance flex items-center gap-4 animate-fade-in"
-              style={{ animationDelay: `${index * 0.05}s` }}
-            >
-              <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-white"
-                style={{ backgroundColor: card.color }}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
+            {cards.map((card, index) => (
+              <button
+                key={card.id}
+                onClick={() => navigate(`/wallet/${card.id}`)}
+                className="w-full card-finance flex items-center gap-4 animate-fade-in"
+                style={{ animationDelay: `${index * 0.05}s` }}
               >
-                {getCardIcon(card.type)}
-              </div>
-              <div className="flex-1 text-left">
-                <p className="font-semibold text-foreground">{card.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {getCardTypeLabel(card.type)} • {card.invoiceItems.length} itens
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="font-semibold text-destructive">
-                  {formatCurrency(getCardTotal(card))}
-                </p>
-                <ChevronRight className="w-5 h-5 text-muted-foreground ml-auto" />
-              </div>
-            </button>
-          ))
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center text-white flex-shrink-0"
+                  style={{ backgroundColor: card.color }}
+                >
+                  {getCardIcon(card.type)}
+                </div>
+                <div className="flex-1 text-left min-w-0">
+                  <p className="font-semibold text-foreground truncate">{card.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {getCardTypeLabel(card.type)} • {card.invoiceItems.length} itens
+                  </p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="font-semibold text-destructive">
+                    {formatCurrency(getCardTotal(card))}
+                  </p>
+                  <ChevronRight className="w-5 h-5 text-muted-foreground ml-auto" />
+                </div>
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
       {/* Add Card Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogTrigger asChild>
-          <button className="floating-button shadow-floating">
+          <button className="floating-button shadow-floating md:bottom-8 md:right-8">
             <Plus className="w-6 h-6" />
           </button>
         </DialogTrigger>

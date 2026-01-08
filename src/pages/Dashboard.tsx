@@ -16,21 +16,23 @@ const Dashboard: React.FC = () => {
   const balance = getBalance();
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24 md:pt-16 md:pb-8">
       {/* Header */}
-      <header className="bg-primary text-primary-foreground p-6 pb-8 rounded-b-3xl">
-        <h1 className="text-xl font-bold text-center tracking-wide">
-          ORÇAMENTO MENSAL
-        </h1>
+      <header className="bg-primary text-primary-foreground p-6 pb-8 rounded-b-3xl md:rounded-none">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-xl md:text-2xl font-bold text-center tracking-wide">
+            ORÇAMENTO MENSAL
+          </h1>
+        </div>
       </header>
 
       {/* Content */}
-      <div className="px-4 -mt-4 space-y-4">
+      <div className="px-4 md:px-6 lg:px-8 -mt-4 space-y-4 max-w-7xl mx-auto">
         {/* Month Selector */}
         <MonthSelector />
 
-        {/* Balance Cards */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Balance Cards - Responsive Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <BalanceCard
             title="Receitas"
             value={totalIncome}
@@ -44,34 +46,34 @@ const Dashboard: React.FC = () => {
             type="negative"
             icon={<TrendingDown className="w-4 h-4 text-destructive" />}
           />
-        </div>
 
-        {/* Main Balance Card */}
-        <div className={`balance-card border animate-fade-in ${
-          balance >= 0 
-            ? 'bg-success/5 border-success/20' 
-            : 'bg-destructive/5 border-destructive/20'
-        }`}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              Saldo do Mês
-            </span>
-            <Scale className={`w-5 h-5 ${balance >= 0 ? 'text-success' : 'text-destructive'}`} />
+          {/* Main Balance Card - Full width on mobile, spans 2 cols on lg */}
+          <div className={`col-span-2 balance-card border animate-fade-in ${
+            balance >= 0 
+              ? 'bg-success/5 border-success/20' 
+              : 'bg-destructive/5 border-destructive/20'
+          }`}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                Saldo do Mês
+              </span>
+              <Scale className={`w-5 h-5 ${balance >= 0 ? 'text-success' : 'text-destructive'}`} />
+            </div>
+            <p className={`text-2xl md:text-3xl font-bold ${balance >= 0 ? 'text-success' : 'text-destructive'}`}>
+              {balance >= 0 ? '+' : ''}
+              {new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+              }).format(balance)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {balance >= 0 ? '🎉 Você está no positivo!' : '⚠️ Atenção: gastos excedem a receita'}
+            </p>
           </div>
-          <p className={`text-3xl font-bold ${balance >= 0 ? 'text-success' : 'text-destructive'}`}>
-            {balance >= 0 ? '+' : ''}
-            {new Intl.NumberFormat('pt-BR', {
-              style: 'currency',
-              currency: 'BRL',
-            }).format(balance)}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {balance >= 0 ? '🎉 Você está no positivo!' : '⚠️ Atenção: gastos excedem a receita'}
-          </p>
         </div>
 
-        {/* Charts Section */}
-        <section className="space-y-4">
+        {/* Charts Section - Responsive Grid */}
+        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {/* Income vs Expense Bar Chart */}
           <div className="card-finance animate-fade-in" style={{ animationDelay: '0.1s' }}>
             <div className="flex items-center gap-2 mb-3">
@@ -101,7 +103,7 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Expenses by Category Pie Chart */}
-          <div className="card-finance animate-fade-in" style={{ animationDelay: '0.2s' }}>
+          <div className="card-finance animate-fade-in md:col-span-2 xl:col-span-1" style={{ animationDelay: '0.2s' }}>
             <div className="flex items-center gap-2 mb-3">
               <PieChart className="w-5 h-5 text-primary" />
               <h2 className="font-semibold text-foreground">Despesas por Categoria</h2>

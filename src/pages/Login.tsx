@@ -44,16 +44,16 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm animate-scale-in">
+      <div className="w-full max-w-sm md:max-w-md animate-scale-in">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary mb-4">
-            <Wallet className="w-8 h-8 text-primary-foreground" />
+          <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-primary mb-4">
+            <Wallet className="w-8 h-8 md:w-10 md:h-10 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
             ALTCORP WALLET
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
+          <p className="text-muted-foreground text-sm md:text-base mt-1">
             Gerencie suas finanças
           </p>
         </div>
@@ -99,7 +99,7 @@ const Login: React.FC = () => {
 
           <Button
             type="submit"
-            className="w-full h-12 rounded-xl font-semibold text-base"
+            className="w-full h-12 md:h-14 rounded-xl font-semibold text-base"
             disabled={isLoading}
           >
             {isLoading ? (
@@ -114,7 +114,7 @@ const Login: React.FC = () => {
         </form>
 
         {/* Hint */}
-        <p className="text-center text-xs text-muted-foreground mt-6">
+        <p className="text-center text-xs md:text-sm text-muted-foreground mt-6">
           Use <span className="font-medium">admin</span> / <span className="font-medium">admin</span> para entrar
         </p>
       </div>

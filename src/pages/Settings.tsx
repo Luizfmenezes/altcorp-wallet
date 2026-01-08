@@ -24,16 +24,18 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24 md:pt-16 md:pb-8">
       {/* Header */}
-      <header className="bg-primary text-primary-foreground p-6 pb-8 rounded-b-3xl">
-        <h1 className="text-xl font-bold text-center tracking-wide">
-          CONFIGURAÇÕES
-        </h1>
+      <header className="bg-primary text-primary-foreground p-6 pb-8 rounded-b-3xl md:rounded-none">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-xl md:text-2xl font-bold text-center tracking-wide">
+            CONFIGURAÇÕES
+          </h1>
+        </div>
       </header>
 
       {/* Content */}
-      <div className="px-4 -mt-4 space-y-4">
+      <div className="px-4 md:px-6 lg:px-8 -mt-4 space-y-4 max-w-2xl mx-auto">
         {/* Profile Section */}
         <section className="card-finance animate-fade-in">
           <div className="flex items-center gap-2 mb-4">
@@ -42,11 +44,11 @@ const Settings: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <User className="w-8 h-8 text-primary" />
+            <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <User className="w-8 h-8 md:w-10 md:h-10 text-primary" />
             </div>
             <div>
-              <p className="font-semibold text-foreground text-lg">
+              <p className="font-semibold text-foreground text-lg md:text-xl">
                 {user?.name || 'Usuário'}
               </p>
               <p className="text-sm text-muted-foreground">
@@ -63,7 +65,7 @@ const Settings: React.FC = () => {
             <h2 className="font-semibold text-foreground">Aparência</h2>
           </div>
           
-          <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-xl">
+          <div className="flex items-center justify-between p-3 md:p-4 bg-secondary/50 rounded-xl">
             <div className="flex items-center gap-3">
               {theme === 'dark' ? (
                 <Moon className="w-5 h-5 text-primary" />
