@@ -15,6 +15,7 @@ export interface InvoiceItem {
   description: string;
   category: string;
   amount: number;
+  owner: string;
 }
 
 export interface Card {
@@ -72,9 +73,9 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       type: 'credit',
       color: '#8B5CF6',
       invoiceItems: [
-        { id: '1', date: '2024-01-05', description: 'Supermercado', category: 'Alimentação', amount: 450.00 },
-        { id: '2', date: '2024-01-10', description: 'Netflix', category: 'Streaming', amount: 55.90 },
-        { id: '3', date: '2024-01-15', description: 'Combustível', category: 'Transporte', amount: 200.00 },
+        { id: '1', date: '2024-01-05', description: 'Supermercado', category: 'Alimentação', amount: 450.00, owner: 'Eu' },
+        { id: '2', date: '2024-01-10', description: 'Netflix', category: 'Streaming', amount: 55.90, owner: 'Eu' },
+        { id: '3', date: '2024-01-15', description: 'Combustível', category: 'Transporte', amount: 200.00, owner: 'Ana' },
       ],
     },
     {
@@ -83,8 +84,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       type: 'bank',
       color: '#F97316',
       invoiceItems: [
-        { id: '1', date: '2024-01-01', description: 'Aluguel', category: 'Moradia', amount: 1500.00 },
-        { id: '2', date: '2024-01-05', description: 'Internet', category: 'Serviços', amount: 120.00 },
+        { id: '1', date: '2024-01-01', description: 'Aluguel', category: 'Moradia', amount: 1500.00, owner: 'Eu' },
+        { id: '2', date: '2024-01-05', description: 'Internet', category: 'Serviços', amount: 120.00, owner: 'Eu' },
       ],
     },
   ]);
