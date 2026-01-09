@@ -16,6 +16,11 @@ export interface InvoiceItem {
   category: string;
   amount: number;
   owner: string;
+  installmentInfo?: {
+    currentInstallment: number;
+    totalInstallments: number;
+    originalAmount: number;
+  };
 }
 
 export interface Card {
@@ -29,6 +34,7 @@ export interface Card {
 interface FinanceContextType {
   incomes: Income[];
   cards: Card[];
+  people: string[];
   selectedMonth: number;
   selectedYear: number;
   setSelectedMonth: (month: number) => void;
@@ -37,9 +43,12 @@ interface FinanceContextType {
   removeIncome: (id: string) => void;
   addCard: (card: Omit<Card, 'id' | 'invoiceItems'>) => void;
   removeCard: (id: string) => void;
-  addInvoiceItem: (cardId: string, item: Omit<InvoiceItem, 'id'>) => void;
+  addInvoiceItem: (cardId: string, item: Omit<InvoiceItem, 'id'>, installments?: number) => void;
+  updateInvoiceItem: (cardId: string, itemId: string, updates: Partial<Omit<InvoiceItem, 'id'>>) => void;
   removeInvoiceItem: (cardId: string, itemId: string) => void;
   importCSV: (cardId: string, items: Omit<InvoiceItem, 'id'>[]) => void;
+  addPerson: (name: string) => void;
+  removePerson: (name: string) => void;
   getTotalIncome: () => number;
   getTotalExpenses: () => number;
   getBalance: () => number;
@@ -60,6 +69,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+  const [people, setPeople] = useState<string[]>(['Eu', 'Ana', 'Outro']);
 
   const [incomes, setIncomes] = useState<Income[]>([
     { id: '1', description: 'Salário', amount: 5000, type: 'fixed' },
@@ -73,9 +83,12 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       type: 'credit',
       color: '#8B5CF6',
       invoiceItems: [
-        { id: '1', date: '2024-01-05', description: 'Supermercado', category: 'Alimentação', amount: 450.00, owner: 'Eu' },
-        { id: '2', date: '2024-01-10', description: 'Netflix', category: 'Streaming', amount: 55.90, owner: 'Eu' },
-        { id: '3', date: '2024-01-15', description: 'Combustível', category: 'Transporte', amount: 200.00, owner: 'Ana' },
+        { id: '1', date: '2026-01-05', description: 'Supermercado', category: 'Alimentação', amount: 450.00, owner: 'Eu' },
+        { id: '2', date: '2026-01-10', description: 'Netflix', category: 'Streaming', amount: 55.90, owner: 'Eu' },
+        { id: '3', date: '2026-01-15', description: 'Combustível', category: 'Transporte', amount: 200.00, owner: 'Ana' },
+        { id: '4', date: '2026-01-20', description: 'Celular (1/3)', category: 'Compras', amount: 500.00, owner: 'Eu', installmentInfo: { currentInstallment: 1, totalInstallments: 3, originalAmount: 1500 } },
+        { id: '5', date: '2026-02-20', description: 'Celular (2/3)', category: 'Compras', amount: 500.00, owner: 'Eu', installmentInfo: { currentInstallment: 2, totalInstallments: 3, originalAmount: 1500 } },
+        { id: '6', date: '2026-03-20', description: 'Celular (3/3)', category: 'Compras', amount: 500.00, owner: 'Eu', installmentInfo: { currentInstallment: 3, totalInstallments: 3, originalAmount: 1500 } },
       ],
     },
     {
@@ -84,8 +97,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       type: 'bank',
       color: '#F97316',
       invoiceItems: [
-        { id: '1', date: '2024-01-01', description: 'Aluguel', category: 'Moradia', amount: 1500.00, owner: 'Eu' },
-        { id: '2', date: '2024-01-05', description: 'Internet', category: 'Serviços', amount: 120.00, owner: 'Eu' },
+        { id: '1', date: '2026-01-01', description: 'Aluguel', category: 'Moradia', amount: 1500.00, owner: 'Eu' },
+        { id: '2', date: '2026-01-05', description: 'Internet', category: 'Serviços', amount: 120.00, owner: 'Eu' },
       ],
     },
   ]);
@@ -106,12 +119,56 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     setCards(prev => prev.filter(c => c.id !== id));
   };
 
-  const addInvoiceItem = (cardId: string, item: Omit<InvoiceItem, 'id'>) => {
+  const addInvoiceItem = (cardId: string, item: Omit<InvoiceItem, 'id'>, installments?: number) => {
+    setCards(prev => prev.map(card => {
+      if (card.id === cardId) {
+        const newItems: InvoiceItem[] = [];
+        
+        if (installments && installments > 1) {
+          const installmentAmount = parseFloat((item.amount / installments).toFixed(2));
+          const baseDate = new Date(item.date);
+          
+          for (let i = 0; i < installments; i++) {
+            const installmentDate = new Date(baseDate);
+            installmentDate.setMonth(baseDate.getMonth() + i);
+            
+            newItems.push({
+              ...item,
+              id: generateId(),
+              date: installmentDate.toISOString().split('T')[0],
+              description: `${item.description} (${i + 1}/${installments})`,
+              amount: installmentAmount,
+              installmentInfo: {
+                currentInstallment: i + 1,
+                totalInstallments: installments,
+                originalAmount: item.amount,
+              },
+            });
+          }
+        } else {
+          newItems.push({ ...item, id: generateId() });
+        }
+        
+        return {
+          ...card,
+          invoiceItems: [...card.invoiceItems, ...newItems],
+        };
+      }
+      return card;
+    }));
+  };
+
+  const updateInvoiceItem = (cardId: string, itemId: string, updates: Partial<Omit<InvoiceItem, 'id'>>) => {
     setCards(prev => prev.map(card => {
       if (card.id === cardId) {
         return {
           ...card,
-          invoiceItems: [...card.invoiceItems, { ...item, id: generateId() }],
+          invoiceItems: card.invoiceItems.map(item => {
+            if (item.id === itemId) {
+              return { ...item, ...updates };
+            }
+            return item;
+          }),
         };
       }
       return card;
@@ -145,6 +202,18 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     }));
   };
 
+  const addPerson = (name: string) => {
+    if (name.trim() && !people.includes(name.trim())) {
+      setPeople(prev => [...prev, name.trim()]);
+    }
+  };
+
+  const removePerson = (name: string) => {
+    if (name !== 'Eu') {
+      setPeople(prev => prev.filter(p => p !== name));
+    }
+  };
+
   const getTotalIncome = () => {
     const fixedIncome = incomes
       .filter(i => i.type === 'fixed')
@@ -171,6 +240,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     <FinanceContext.Provider value={{
       incomes,
       cards,
+      people,
       selectedMonth,
       selectedYear,
       setSelectedMonth,
@@ -180,8 +250,11 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       addCard,
       removeCard,
       addInvoiceItem,
+      updateInvoiceItem,
       removeInvoiceItem,
       importCSV,
+      addPerson,
+      removePerson,
       getTotalIncome,
       getTotalExpenses,
       getBalance,
