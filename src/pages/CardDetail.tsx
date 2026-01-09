@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Upload, CreditCard, Building2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Upload, CreditCard, Building2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useFinance, Card } from '@/contexts/FinanceContext';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useFinance, Card, getMonthName } from '@/contexts/FinanceContext';
 import { useToast } from '@/hooks/use-toast';
 
 const CATEGORIES = [
@@ -20,6 +21,10 @@ const CATEGORIES = [
   'Outros',
 ];
 
+const OWNERS = ['Eu', 'Ana', 'Outro'];
+const MONTHS = Array.from({ length: 12 }, (_, i) => i);
+const YEARS = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i);
+
 const CardDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -29,6 +34,8 @@ const CardDetail: React.FC = () => {
 
   const card = cards.find((c) => c.id === id);
 
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [newItem, setNewItem] = useState({
@@ -36,6 +43,7 @@ const CardDetail: React.FC = () => {
     description: '',
     category: CATEGORIES[0],
     amount: '',
+    owner: 'Eu',
   });
 
   if (!card) {
@@ -50,6 +58,12 @@ const CardDetail: React.FC = () => {
       </div>
     );
   }
+
+  // Filter items by selected month/year
+  const filteredItems = card.invoiceItems.filter((item) => {
+    const itemDate = new Date(item.date);
+    return itemDate.getMonth() === selectedMonth && itemDate.getFullYear() === selectedYear;
+  });
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -71,6 +85,13 @@ const CardDetail: React.FC = () => {
     }
   };
 
+  // Calculate totals by owner
+  const ownerTotals = filteredItems.reduce((acc, item) => {
+    const owner = item.owner || 'Eu';
+    acc[owner] = (acc[owner] || 0) + item.amount;
+    return acc;
+  }, {} as Record<string, number>);
+
   const handleAddItem = () => {
     if (!newItem.description || !newItem.amount) {
       toast({
@@ -86,6 +107,7 @@ const CardDetail: React.FC = () => {
       description: newItem.description,
       category: newItem.category,
       amount: parseFloat(newItem.amount),
+      owner: newItem.owner,
     });
 
     toast({
@@ -98,6 +120,7 @@ const CardDetail: React.FC = () => {
       description: '',
       category: CATEGORIES[0],
       amount: '',
+      owner: 'Eu',
     });
     setIsAddDialogOpen(false);
   };
@@ -123,12 +146,13 @@ const CardDetail: React.FC = () => {
       const dataLines = lines[0].toLowerCase().includes('data') ? lines.slice(1) : lines;
       
       const items = dataLines.map((line) => {
-        const [date, description, category, amount] = line.split(',').map((s) => s.trim());
+        const [date, description, category, amount, owner] = line.split(',').map((s) => s.trim());
         return {
           date: date || new Date().toISOString().split('T')[0],
           description: description || 'Importado',
           category: category || 'Outros',
           amount: parseFloat(amount) || 0,
+          owner: owner || 'Eu',
         };
       }).filter((item) => item.amount > 0);
 
@@ -151,7 +175,7 @@ const CardDetail: React.FC = () => {
     reader.readAsText(file);
   };
 
-  const totalAmount = card.invoiceItems.reduce((sum, item) => sum + item.amount, 0);
+  const totalAmount = filteredItems.reduce((sum, item) => sum + item.amount, 0);
 
   return (
     <div className="min-h-screen bg-background pb-8">
@@ -176,7 +200,7 @@ const CardDetail: React.FC = () => {
             {getCardIcon(card.type)}
           </div>
           <div className="bg-white/20 rounded-2xl p-4 md:max-w-md">
-            <p className="text-white/80 text-sm">Total da Fatura</p>
+            <p className="text-white/80 text-sm">Total da Fatura - {getMonthName(selectedMonth)}</p>
             <p className="text-2xl md:text-3xl font-bold">{formatCurrency(totalAmount)}</p>
           </div>
         </div>
@@ -184,6 +208,73 @@ const CardDetail: React.FC = () => {
 
       {/* Content */}
       <div className="px-4 md:px-6 lg:px-8 -mt-4 space-y-4 max-w-7xl mx-auto">
+        {/* Month/Year Filters */}
+        <div className="card-finance animate-fade-in">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+                Mês da Fatura
+              </label>
+              <Select
+                value={selectedMonth.toString()}
+                onValueChange={(value) => setSelectedMonth(parseInt(value))}
+              >
+                <SelectTrigger className="w-full h-11 rounded-xl bg-secondary/50 border-0">
+                  <SelectValue placeholder="Mês" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border shadow-lg z-50">
+                  {MONTHS.map((month) => (
+                    <SelectItem key={month} value={month.toString()}>
+                      {getMonthName(month)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+                Ano
+              </label>
+              <Select
+                value={selectedYear.toString()}
+                onValueChange={(value) => setSelectedYear(parseInt(value))}
+              >
+                <SelectTrigger className="w-full h-11 rounded-xl bg-secondary/50 border-0">
+                  <SelectValue placeholder="Ano" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border shadow-lg z-50">
+                  {YEARS.map((year) => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        {/* Shared Spend Summary */}
+        {Object.keys(ownerTotals).length > 0 && (
+          <div className="card-finance animate-fade-in" style={{ animationDelay: '0.05s' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="w-5 h-5 text-primary" />
+              <h2 className="font-semibold text-foreground">Gastos por Titular</h2>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {Object.entries(ownerTotals).map(([owner, total]) => (
+                <div
+                  key={owner}
+                  className="flex items-center gap-2 px-4 py-2 bg-secondary/50 rounded-xl"
+                >
+                  <span className="text-sm font-medium text-foreground">{owner}:</span>
+                  <span className="text-sm font-bold text-destructive">{formatCurrency(total)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="flex gap-3 md:max-w-md">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -210,17 +301,21 @@ const CardDetail: React.FC = () => {
                   onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
                   className="input-finance"
                 />
-                <select
+                <Select
                   value={newItem.category}
-                  onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
-                  className="w-full input-finance"
+                  onValueChange={(value) => setNewItem({ ...newItem, category: value })}
                 >
-                  {CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="input-finance">
+                    <SelectValue placeholder="Categoria" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border shadow-lg z-50">
+                    {CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Input
                   type="number"
                   placeholder="Valor"
@@ -228,6 +323,21 @@ const CardDetail: React.FC = () => {
                   onChange={(e) => setNewItem({ ...newItem, amount: e.target.value })}
                   className="input-finance"
                 />
+                <Select
+                  value={newItem.owner}
+                  onValueChange={(value) => setNewItem({ ...newItem, owner: value })}
+                >
+                  <SelectTrigger className="input-finance">
+                    <SelectValue placeholder="Titular da Compra" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border shadow-lg z-50">
+                    {OWNERS.map((owner) => (
+                      <SelectItem key={owner} value={owner}>
+                        {owner}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button onClick={handleAddItem} className="w-full h-12 rounded-xl">
                   Adicionar
                 </Button>
@@ -266,7 +376,7 @@ const CardDetail: React.FC = () => {
                 <div className="text-xs text-muted-foreground">
                   <p className="font-medium mb-1">Formato esperado:</p>
                   <code className="bg-secondary p-2 rounded block">
-                    Data,Descrição,Categoria,Valor
+                    Data,Descrição,Categoria,Valor,Titular
                   </code>
                 </div>
               </div>
@@ -278,13 +388,13 @@ const CardDetail: React.FC = () => {
         <section className="card-finance">
           <h2 className="font-semibold text-foreground mb-4">Fatura</h2>
           
-          {card.invoiceItems.length === 0 ? (
+          {filteredItems.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
-              Nenhum item na fatura
+              Nenhum item na fatura deste mês
             </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 md:gap-3">
-              {card.invoiceItems.map((item, index) => (
+              {filteredItems.map((item, index) => (
                 <div
                   key={item.id}
                   className="flex items-center justify-between p-3 bg-secondary/50 rounded-xl animate-fade-in"
@@ -294,12 +404,20 @@ const CardDetail: React.FC = () => {
                     <p className="font-medium text-foreground truncate">
                       {item.description}
                     </p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                       <span>{formatDate(item.date)}</span>
                       <span>•</span>
                       <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full">
                         {item.category}
                       </span>
+                      {item.owner && (
+                        <>
+                          <span>•</span>
+                          <span className="px-2 py-0.5 bg-warning/10 text-warning rounded-full">
+                            {item.owner}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-2">
