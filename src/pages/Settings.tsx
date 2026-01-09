@@ -1,18 +1,25 @@
-import React from 'react';
-import { User, Moon, Sun, LogOut, Palette } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, Moon, Sun, LogOut, Palette, Users, Plus, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useFinance } from '@/contexts/FinanceContext';
 import { useToast } from '@/hooks/use-toast';
 
 const Settings: React.FC = () => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { people, addPerson, removePerson } = useFinance();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
+  const [newPersonName, setNewPersonName] = useState('');
 
   const handleLogout = () => {
     logout();
@@ -21,6 +28,34 @@ const Settings: React.FC = () => {
       description: 'Você foi desconectado.',
     });
     navigate('/');
+  };
+
+  const handleAddPerson = () => {
+    if (newPersonName.trim()) {
+      addPerson(newPersonName.trim());
+      setNewPersonName('');
+      setIsAddPersonOpen(false);
+      toast({
+        title: 'Sucesso',
+        description: 'Pessoa adicionada com sucesso!',
+      });
+    }
+  };
+
+  const handleRemovePerson = (name: string) => {
+    if (name === 'Eu') {
+      toast({
+        title: 'Erro',
+        description: 'Não é possível remover "Eu".',
+        variant: 'destructive',
+      });
+      return;
+    }
+    removePerson(name);
+    toast({
+      title: 'Removido',
+      description: 'Pessoa removida com sucesso.',
+    });
   };
 
   return (
@@ -58,6 +93,74 @@ const Settings: React.FC = () => {
           </div>
         </section>
 
+        {/* People Management Section */}
+        <section className="card-finance animate-fade-in" style={{ animationDelay: '0.05s' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              <h2 className="font-semibold text-foreground">Gerenciar Pessoas</h2>
+            </div>
+            <Dialog open={isAddPersonOpen} onOpenChange={setIsAddPersonOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 rounded-xl">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Adicionar
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-xs">
+                <DialogHeader>
+                  <DialogTitle>Adicionar Pessoa</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 mt-4">
+                  <Input
+                    placeholder="Nome da pessoa"
+                    value={newPersonName}
+                    onChange={(e) => setNewPersonName(e.target.value)}
+                    className="input-finance"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddPerson()}
+                  />
+                  <Button onClick={handleAddPerson} className="w-full h-11 rounded-xl">
+                    Adicionar
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+          
+          <p className="text-xs text-muted-foreground mb-3">
+            Pessoas cadastradas para usar como titular nas compras dos cartões.
+          </p>
+          
+          <div className="space-y-2">
+            {people.map((person, index) => (
+              <div
+                key={person}
+                className="flex items-center justify-between p-3 bg-secondary/50 rounded-xl animate-fade-in"
+                style={{ animationDelay: `${index * 0.05}s` }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span className="text-sm font-medium text-primary">
+                      {person.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <span className="font-medium text-foreground">{person}</span>
+                </div>
+                {person !== 'Eu' && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemovePerson(person)}
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* Appearance Section */}
         <section className="card-finance animate-fade-in" style={{ animationDelay: '0.1s' }}>
           <div className="flex items-center gap-2 mb-4">
@@ -91,7 +194,7 @@ const Settings: React.FC = () => {
           variant="destructive"
           onClick={handleLogout}
           className="w-full h-14 rounded-xl text-base font-semibold animate-fade-in"
-          style={{ animationDelay: '0.2s' }}
+          style={{ animationDelay: '0.15s' }}
         >
           <LogOut className="w-5 h-5 mr-2" />
           Sair

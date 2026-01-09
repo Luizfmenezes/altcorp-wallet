@@ -1,11 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Upload, CreditCard, Building2, Users } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Upload, CreditCard, Building2, Users, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useFinance, Card, getMonthName } from '@/contexts/FinanceContext';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { useFinance, Card, getMonthName, InvoiceItem } from '@/contexts/FinanceContext';
 import { useToast } from '@/hooks/use-toast';
 
 const CATEGORIES = [
@@ -21,14 +23,13 @@ const CATEGORIES = [
   'Outros',
 ];
 
-const OWNERS = ['Eu', 'Ana', 'Outro'];
 const MONTHS = Array.from({ length: 12 }, (_, i) => i);
 const YEARS = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i);
 
 const CardDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { cards, addInvoiceItem, removeInvoiceItem, importCSV } = useFinance();
+  const { cards, people, addInvoiceItem, updateInvoiceItem, removeInvoiceItem, importCSV, addPerson } = useFinance();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -37,13 +38,28 @@ const CardDetail: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
+  const [newPersonName, setNewPersonName] = useState('');
+  const [editingItem, setEditingItem] = useState<InvoiceItem | null>(null);
+  
   const [newItem, setNewItem] = useState({
     date: new Date().toISOString().split('T')[0],
     description: '',
     category: CATEGORIES[0],
     amount: '',
     owner: 'Eu',
+    isInstallment: false,
+    installments: '2',
+  });
+
+  const [editItem, setEditItem] = useState({
+    date: '',
+    description: '',
+    category: '',
+    amount: '',
+    owner: '',
   });
 
   if (!card) {
@@ -102,17 +118,27 @@ const CardDetail: React.FC = () => {
       return;
     }
 
-    addInvoiceItem(card.id, {
-      date: newItem.date,
-      description: newItem.description,
-      category: newItem.category,
-      amount: parseFloat(newItem.amount),
-      owner: newItem.owner,
-    });
+    const installments = newItem.isInstallment ? parseInt(newItem.installments) : undefined;
+
+    addInvoiceItem(
+      card.id,
+      {
+        date: newItem.date,
+        description: newItem.description,
+        category: newItem.category,
+        amount: parseFloat(newItem.amount),
+        owner: newItem.owner,
+      },
+      installments
+    );
+
+    const message = installments && installments > 1 
+      ? `Item parcelado em ${installments}x adicionado com sucesso!`
+      : 'Item adicionado com sucesso!';
 
     toast({
       title: 'Sucesso',
-      description: 'Item adicionado com sucesso!',
+      description: message,
     });
 
     setNewItem({
@@ -121,8 +147,49 @@ const CardDetail: React.FC = () => {
       category: CATEGORIES[0],
       amount: '',
       owner: 'Eu',
+      isInstallment: false,
+      installments: '2',
     });
     setIsAddDialogOpen(false);
+  };
+
+  const handleEditItem = () => {
+    if (!editingItem || !editItem.description || !editItem.amount) {
+      toast({
+        title: 'Erro',
+        description: 'Preencha todos os campos.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    updateInvoiceItem(card.id, editingItem.id, {
+      date: editItem.date,
+      description: editItem.description,
+      category: editItem.category,
+      amount: parseFloat(editItem.amount),
+      owner: editItem.owner,
+    });
+
+    toast({
+      title: 'Sucesso',
+      description: 'Item atualizado com sucesso!',
+    });
+
+    setIsEditDialogOpen(false);
+    setEditingItem(null);
+  };
+
+  const openEditDialog = (item: InvoiceItem) => {
+    setEditingItem(item);
+    setEditItem({
+      date: item.date,
+      description: item.description,
+      category: item.category,
+      amount: item.amount.toString(),
+      owner: item.owner,
+    });
+    setIsEditDialogOpen(true);
   };
 
   const handleRemoveItem = (itemId: string) => {
@@ -131,6 +198,19 @@ const CardDetail: React.FC = () => {
       title: 'Removido',
       description: 'Item removido com sucesso.',
     });
+  };
+
+  const handleAddPerson = () => {
+    if (newPersonName.trim()) {
+      addPerson(newPersonName.trim());
+      setNewItem({ ...newItem, owner: newPersonName.trim() });
+      setNewPersonName('');
+      setIsAddPersonOpen(false);
+      toast({
+        title: 'Sucesso',
+        description: 'Pessoa adicionada com sucesso!',
+      });
+    }
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -284,7 +364,7 @@ const CardDetail: React.FC = () => {
                 Adicionar Item
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Adicionar Item</DialogTitle>
               </DialogHeader>
@@ -318,28 +398,99 @@ const CardDetail: React.FC = () => {
                 </Select>
                 <Input
                   type="number"
-                  placeholder="Valor"
+                  placeholder="Valor Total"
                   value={newItem.amount}
                   onChange={(e) => setNewItem({ ...newItem, amount: e.target.value })}
                   className="input-finance"
                 />
-                <Select
-                  value={newItem.owner}
-                  onValueChange={(value) => setNewItem({ ...newItem, owner: value })}
-                >
-                  <SelectTrigger className="input-finance">
-                    <SelectValue placeholder="Titular da Compra" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border shadow-lg z-50">
-                    {OWNERS.map((owner) => (
-                      <SelectItem key={owner} value={owner}>
-                        {owner}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                
+                {/* Person Selector with Add Button */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Titular da Compra</Label>
+                  <div className="flex gap-2">
+                    <Select
+                      value={newItem.owner}
+                      onValueChange={(value) => setNewItem({ ...newItem, owner: value })}
+                    >
+                      <SelectTrigger className="input-finance flex-1">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border shadow-lg z-50">
+                        {people.map((person) => (
+                          <SelectItem key={person} value={person}>
+                            {person}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Dialog open={isAddPersonOpen} onOpenChange={setIsAddPersonOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl shrink-0">
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-xs">
+                        <DialogHeader>
+                          <DialogTitle>Adicionar Pessoa</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 mt-4">
+                          <Input
+                            placeholder="Nome da pessoa"
+                            value={newPersonName}
+                            onChange={(e) => setNewPersonName(e.target.value)}
+                            className="input-finance"
+                          />
+                          <Button onClick={handleAddPerson} className="w-full h-11 rounded-xl">
+                            Adicionar
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
+
+                {/* Installment Toggle */}
+                <div className="space-y-3 p-4 bg-secondary/30 rounded-xl">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="installment-toggle" className="text-sm font-medium cursor-pointer">
+                      Compra Parcelada?
+                    </Label>
+                    <Switch
+                      id="installment-toggle"
+                      checked={newItem.isInstallment}
+                      onCheckedChange={(checked) => setNewItem({ ...newItem, isInstallment: checked })}
+                    />
+                  </div>
+                  
+                  {newItem.isInstallment && (
+                    <div className="space-y-2 animate-fade-in">
+                      <Label className="text-xs text-muted-foreground">Quantidade de Parcelas</Label>
+                      <Select
+                        value={newItem.installments}
+                        onValueChange={(value) => setNewItem({ ...newItem, installments: value })}
+                      >
+                        <SelectTrigger className="input-finance">
+                          <SelectValue placeholder="Parcelas" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background border shadow-lg z-50">
+                          {Array.from({ length: 12 }, (_, i) => i + 2).map((num) => (
+                            <SelectItem key={num} value={num.toString()}>
+                              {num}x de {newItem.amount ? formatCurrency(parseFloat(newItem.amount) / num) : 'R$ 0,00'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {newItem.amount && (
+                        <p className="text-xs text-muted-foreground">
+                          As parcelas serão criadas automaticamente nos próximos meses.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <Button onClick={handleAddItem} className="w-full h-12 rounded-xl">
-                  Adicionar
+                  {newItem.isInstallment ? `Adicionar em ${newItem.installments}x` : 'Adicionar'}
                 </Button>
               </div>
             </DialogContent>
@@ -384,6 +535,69 @@ const CardDetail: React.FC = () => {
           </Dialog>
         </div>
 
+        {/* Edit Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Editar Item</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <Input
+                type="date"
+                value={editItem.date}
+                onChange={(e) => setEditItem({ ...editItem, date: e.target.value })}
+                className="input-finance"
+              />
+              <Input
+                placeholder="Descrição"
+                value={editItem.description}
+                onChange={(e) => setEditItem({ ...editItem, description: e.target.value })}
+                className="input-finance"
+              />
+              <Select
+                value={editItem.category}
+                onValueChange={(value) => setEditItem({ ...editItem, category: value })}
+              >
+                <SelectTrigger className="input-finance">
+                  <SelectValue placeholder="Categoria" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border shadow-lg z-50">
+                  {CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="number"
+                placeholder="Valor"
+                value={editItem.amount}
+                onChange={(e) => setEditItem({ ...editItem, amount: e.target.value })}
+                className="input-finance"
+              />
+              <Select
+                value={editItem.owner}
+                onValueChange={(value) => setEditItem({ ...editItem, owner: value })}
+              >
+                <SelectTrigger className="input-finance">
+                  <SelectValue placeholder="Titular" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border shadow-lg z-50">
+                  {people.map((person) => (
+                    <SelectItem key={person} value={person}>
+                      {person}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={handleEditItem} className="w-full h-12 rounded-xl">
+                Salvar Alterações
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Invoice Items */}
         <section className="card-finance">
           <h2 className="font-semibold text-foreground mb-4">Fatura</h2>
@@ -397,8 +611,9 @@ const CardDetail: React.FC = () => {
               {filteredItems.map((item, index) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between p-3 bg-secondary/50 rounded-xl animate-fade-in"
+                  className="flex items-center justify-between p-3 bg-secondary/50 rounded-xl animate-fade-in cursor-pointer hover:bg-secondary/70 transition-colors"
                   style={{ animationDelay: `${index * 0.03}s` }}
+                  onClick={() => openEditDialog(item)}
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-foreground truncate">
@@ -418,6 +633,14 @@ const CardDetail: React.FC = () => {
                           </span>
                         </>
                       )}
+                      {item.installmentInfo && (
+                        <>
+                          <span>•</span>
+                          <span className="px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded-full">
+                            Parcela {item.installmentInfo.currentInstallment}/{item.installmentInfo.totalInstallments}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-2">
@@ -427,7 +650,21 @@ const CardDetail: React.FC = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleRemoveItem(item.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditDialog(item);
+                      }}
+                      className="h-8 w-8 text-muted-foreground hover:text-primary"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveItem(item.id);
+                      }}
                       className="h-8 w-8 text-muted-foreground hover:text-destructive"
                     >
                       <Trash2 className="w-4 h-4" />
