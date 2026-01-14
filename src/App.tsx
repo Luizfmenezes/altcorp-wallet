@@ -9,6 +9,7 @@ import { FinanceProvider } from "@/contexts/FinanceContext";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Incomes from "./pages/Incomes";
+import Expenses from "./pages/Expenses";
 import Wallet from "./pages/Wallet";
 import CardDetail from "./pages/CardDetail";
 import Settings from "./pages/Settings";
@@ -43,6 +44,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Incomes />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/expenses"
+        element={
+          <ProtectedRoute>
+            <Expenses />
           </ProtectedRoute>
         }
       />

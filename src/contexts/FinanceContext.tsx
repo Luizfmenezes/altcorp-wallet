@@ -9,6 +9,15 @@ export interface Income {
   year?: number;
 }
 
+export interface Expense {
+  id: string;
+  date: string;
+  description: string;
+  category: string;
+  amount: number;
+  owner: string;
+}
+
 export interface InvoiceItem {
   id: string;
   date: string;
@@ -33,6 +42,7 @@ export interface Card {
 
 interface FinanceContextType {
   incomes: Income[];
+  expenses: Expense[];
   cards: Card[];
   people: string[];
   selectedMonth: number;
@@ -41,6 +51,9 @@ interface FinanceContextType {
   setSelectedYear: (year: number) => void;
   addIncome: (income: Omit<Income, 'id'>) => void;
   removeIncome: (id: string) => void;
+  addExpense: (expense: Omit<Expense, 'id'>) => void;
+  updateExpense: (id: string, updates: Partial<Omit<Expense, 'id'>>) => void;
+  removeExpense: (id: string) => void;
   addCard: (card: Omit<Card, 'id' | 'invoiceItems'>) => void;
   removeCard: (id: string) => void;
   addInvoiceItem: (cardId: string, item: Omit<InvoiceItem, 'id'>, installments?: number) => void;
@@ -51,6 +64,7 @@ interface FinanceContextType {
   removePerson: (name: string) => void;
   getTotalIncome: () => number;
   getTotalExpenses: () => number;
+  getTotalDirectExpenses: () => number;
   getBalance: () => number;
 }
 
@@ -74,6 +88,14 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [incomes, setIncomes] = useState<Income[]>([
     { id: '1', description: 'Salário', amount: 5000, type: 'fixed' },
     { id: '2', description: 'Freelance', amount: 1500, type: 'extra', month: currentDate.getMonth(), year: currentDate.getFullYear() },
+  ]);
+
+  const [expenses, setExpenses] = useState<Expense[]>([
+    { id: '1', date: '2026-01-03', description: 'Mercado', category: 'Alimentação', amount: 320.00, owner: 'Eu' },
+    { id: '2', date: '2026-01-05', description: 'Uber', category: 'Transporte', amount: 45.50, owner: 'Eu' },
+    { id: '3', date: '2026-01-08', description: 'Farmácia', category: 'Saúde', amount: 89.90, owner: 'Ana' },
+    { id: '4', date: '2026-01-10', description: 'Restaurante', category: 'Alimentação', amount: 156.00, owner: 'Eu' },
+    { id: '5', date: '2026-01-12', description: 'Conta de Luz', category: 'Moradia', amount: 180.00, owner: 'Eu' },
   ]);
 
   const [cards, setCards] = useState<Card[]>([
@@ -109,6 +131,23 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const removeIncome = (id: string) => {
     setIncomes(prev => prev.filter(i => i.id !== id));
+  };
+
+  const addExpense = (expense: Omit<Expense, 'id'>) => {
+    setExpenses(prev => [...prev, { ...expense, id: generateId() }]);
+  };
+
+  const updateExpense = (id: string, updates: Partial<Omit<Expense, 'id'>>) => {
+    setExpenses(prev => prev.map(exp => {
+      if (exp.id === id) {
+        return { ...exp, ...updates };
+      }
+      return exp;
+    }));
+  };
+
+  const removeExpense = (id: string) => {
+    setExpenses(prev => prev.filter(e => e.id !== id));
   };
 
   const addCard = (card: Omit<Card, 'id' | 'invoiceItems'>) => {
@@ -227,9 +266,34 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const getTotalExpenses = () => {
-    return cards.reduce((total, card) => {
-      return total + card.invoiceItems.reduce((sum, item) => sum + item.amount, 0);
+    // Card expenses for selected month
+    const cardExpenses = cards.reduce((total, card) => {
+      return total + card.invoiceItems
+        .filter(item => {
+          const itemDate = new Date(item.date);
+          return itemDate.getMonth() === selectedMonth && itemDate.getFullYear() === selectedYear;
+        })
+        .reduce((sum, item) => sum + item.amount, 0);
     }, 0);
+
+    // Direct expenses for selected month
+    const directExpenses = expenses
+      .filter(exp => {
+        const expDate = new Date(exp.date);
+        return expDate.getMonth() === selectedMonth && expDate.getFullYear() === selectedYear;
+      })
+      .reduce((sum, exp) => sum + exp.amount, 0);
+
+    return cardExpenses + directExpenses;
+  };
+
+  const getTotalDirectExpenses = () => {
+    return expenses
+      .filter(exp => {
+        const expDate = new Date(exp.date);
+        return expDate.getMonth() === selectedMonth && expDate.getFullYear() === selectedYear;
+      })
+      .reduce((sum, exp) => sum + exp.amount, 0);
   };
 
   const getBalance = () => {
@@ -239,6 +303,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   return (
     <FinanceContext.Provider value={{
       incomes,
+      expenses,
       cards,
       people,
       selectedMonth,
@@ -247,6 +312,9 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       setSelectedYear,
       addIncome,
       removeIncome,
+      addExpense,
+      updateExpense,
+      removeExpense,
       addCard,
       removeCard,
       addInvoiceItem,
@@ -257,6 +325,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       removePerson,
       getTotalIncome,
       getTotalExpenses,
+      getTotalDirectExpenses,
       getBalance,
     }}>
       {children}
