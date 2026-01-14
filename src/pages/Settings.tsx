@@ -12,7 +12,7 @@ import { useFinance } from '@/contexts/FinanceContext';
 import { useToast } from '@/hooks/use-toast';
 
 const Settings: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUserProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { people, addPerson, removePerson } = useFinance();
   const navigate = useNavigate();
@@ -21,9 +21,10 @@ const Settings: React.FC = () => {
   const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
   const [newPersonName, setNewPersonName] = useState('');
   
-  // Profile edit state
-  const [profileName, setProfileName] = useState(user?.name || 'Usuário');
-  const [profileEmail, setProfileEmail] = useState('usuario@email.com');
+  // Profile edit state - load from user profile
+  const [profileFirstName, setProfileFirstName] = useState(user?.profile?.firstName || '');
+  const [profileLastName, setProfileLastName] = useState(user?.profile?.lastName || '');
+  const [profileEmail, setProfileEmail] = useState(user?.profile?.email || '');
 
   const handleLogout = () => {
     logout();
@@ -63,6 +64,11 @@ const Settings: React.FC = () => {
   };
 
   const handleSaveProfile = () => {
+    updateUserProfile({
+      firstName: profileFirstName,
+      lastName: profileLastName,
+      email: profileEmail,
+    });
     toast({
       title: 'Perfil atualizado',
       description: 'Suas alterações foram salvas.',
@@ -103,14 +109,25 @@ const Settings: React.FC = () => {
           
           {/* Profile Form */}
           <div className="space-y-4">
-            <div>
-              <label className="text-sm text-muted-foreground mb-1 block">Nome</label>
-              <Input
-                value={profileName}
-                onChange={(e) => setProfileName(e.target.value)}
-                className="input-finance"
-                placeholder="Seu nome"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">Nome</label>
+                <Input
+                  value={profileFirstName}
+                  onChange={(e) => setProfileFirstName(e.target.value)}
+                  className="input-finance"
+                  placeholder="Nome"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">Sobrenome</label>
+                <Input
+                  value={profileLastName}
+                  onChange={(e) => setProfileLastName(e.target.value)}
+                  className="input-finance"
+                  placeholder="Sobrenome"
+                />
+              </div>
             </div>
             
             <div>
