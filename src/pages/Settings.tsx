@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Moon, Sun, LogOut, Palette, Users, Plus, Trash2 } from 'lucide-react';
+import { User, Moon, Sun, LogOut, Palette, Users, Plus, Trash2, Camera, Mail, Save } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,10 @@ const Settings: React.FC = () => {
 
   const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
   const [newPersonName, setNewPersonName] = useState('');
+  
+  // Profile edit state
+  const [profileName, setProfileName] = useState(user?.name || 'Usuário');
+  const [profileEmail, setProfileEmail] = useState('usuario@email.com');
 
   const handleLogout = () => {
     logout();
@@ -58,6 +62,13 @@ const Settings: React.FC = () => {
     });
   };
 
+  const handleSaveProfile = () => {
+    toast({
+      title: 'Perfil atualizado',
+      description: 'Suas alterações foram salvas.',
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24 md:pt-16 md:pb-8">
       {/* Header */}
@@ -78,18 +89,48 @@ const Settings: React.FC = () => {
             <h2 className="font-semibold text-foreground">Perfil</h2>
           </div>
           
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <User className="w-8 h-8 md:w-10 md:h-10 text-primary" />
+          {/* Avatar */}
+          <div className="flex justify-center mb-6">
+            <div className="relative">
+              <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-primary/10 flex items-center justify-center border-4 border-primary/20">
+                <User className="w-12 h-12 md:w-14 md:h-14 text-primary" />
+              </div>
+              <button className="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors">
+                <Camera className="w-4 h-4 text-primary-foreground" />
+              </button>
             </div>
+          </div>
+          
+          {/* Profile Form */}
+          <div className="space-y-4">
             <div>
-              <p className="font-semibold text-foreground text-lg md:text-xl">
-                {user?.name || 'Usuário'}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                @{user?.username || 'usuario'}
-              </p>
+              <label className="text-sm text-muted-foreground mb-1 block">Nome</label>
+              <Input
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                className="input-finance"
+                placeholder="Seu nome"
+              />
             </div>
+            
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="email"
+                  value={profileEmail}
+                  onChange={(e) => setProfileEmail(e.target.value)}
+                  className="input-finance pl-10"
+                  placeholder="seu@email.com"
+                />
+              </div>
+            </div>
+            
+            <Button onClick={handleSaveProfile} className="w-full h-11 rounded-xl">
+              <Save className="w-4 h-4 mr-2" />
+              Salvar Alterações
+            </Button>
           </div>
         </section>
 
@@ -128,7 +169,7 @@ const Settings: React.FC = () => {
           </div>
           
           <p className="text-xs text-muted-foreground mb-3">
-            Pessoas cadastradas para usar como titular nas compras dos cartões.
+            Pessoas cadastradas para usar como titular nas compras e gastos.
           </p>
           
           <div className="space-y-2">
