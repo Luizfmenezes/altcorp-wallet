@@ -62,6 +62,9 @@ interface FinanceContextType {
   importCSV: (cardId: string, items: Omit<InvoiceItem, 'id'>[]) => void;
   addPerson: (name: string) => void;
   removePerson: (name: string) => void;
+  setPeople: (people: string[]) => void;
+  setInitialIncome: (amount: number) => void;
+  setInitialCards: (cards: Array<{ name: string; limit: number }>) => void;
   getTotalIncome: () => number;
   getTotalExpenses: () => number;
   getTotalDirectExpenses: () => number;
@@ -253,6 +256,30 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   };
 
+  const setPeopleList = (newPeople: string[]) => {
+    setPeople(newPeople);
+  };
+
+  const setInitialIncome = (amount: number) => {
+    // Clear existing fixed income and set new one
+    setIncomes([
+      { id: generateId(), description: 'Salário', amount, type: 'fixed' },
+    ]);
+  };
+
+  const setInitialCards = (newCards: Array<{ name: string; limit: number }>) => {
+    const cardColors = ['#8B5CF6', '#F97316', '#EF4444', '#3B82F6', '#10B981', '#6366F1'];
+    setCards(
+      newCards.map((card, index) => ({
+        id: generateId(),
+        name: card.name,
+        type: 'credit' as const,
+        color: cardColors[index % cardColors.length],
+        invoiceItems: [],
+      }))
+    );
+  };
+
   const getTotalIncome = () => {
     const fixedIncome = incomes
       .filter(i => i.type === 'fixed')
@@ -323,6 +350,9 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       importCSV,
       addPerson,
       removePerson,
+      setPeople: setPeopleList,
+      setInitialIncome,
+      setInitialCards,
       getTotalIncome,
       getTotalExpenses,
       getTotalDirectExpenses,
