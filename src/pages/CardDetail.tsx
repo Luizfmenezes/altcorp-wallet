@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Upload, CreditCard, Building2, Users, Pencil } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Upload, CreditCard, Building2, Users, Pencil, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -9,7 +9,8 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useFinance, Card, getMonthName, InvoiceItem } from '@/contexts/FinanceContext';
 import { useToast } from '@/hooks/use-toast';
-
+import CSVImportDialog from '@/components/CSVImportDialog';
+import PDFExportDialog from '@/components/PDFExportDialog';
 const CATEGORIES = [
   'Alimentação',
   'Transporte',
@@ -31,7 +32,6 @@ const CardDetail: React.FC = () => {
   const navigate = useNavigate();
   const { cards, people, addInvoiceItem, updateInvoiceItem, removeInvoiceItem, importCSV, addPerson } = useFinance();
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const card = cards.find((c) => c.id === id);
 
@@ -40,6 +40,7 @@ const CardDetail: React.FC = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
   const [newPersonName, setNewPersonName] = useState('');
   const [editingItem, setEditingItem] = useState<InvoiceItem | null>(null);
@@ -213,46 +214,15 @@ const CardDetail: React.FC = () => {
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const lines = text.split('\n').filter((line) => line.trim());
-      
-      // Skip header if present
-      const dataLines = lines[0].toLowerCase().includes('data') ? lines.slice(1) : lines;
-      
-      const items = dataLines.map((line) => {
-        const [date, description, category, amount, owner] = line.split(',').map((s) => s.trim());
-        return {
-          date: date || new Date().toISOString().split('T')[0],
-          description: description || 'Importado',
-          category: category || 'Outros',
-          amount: parseFloat(amount) || 0,
-          owner: owner || 'Eu',
-        };
-      }).filter((item) => item.amount > 0);
-
-      if (items.length > 0) {
-        importCSV(card.id, items);
-        toast({
-          title: 'Sucesso',
-          description: `${items.length} itens importados com sucesso!`,
-        });
-      } else {
-        toast({
-          title: 'Erro',
-          description: 'Nenhum item válido encontrado no arquivo.',
-          variant: 'destructive',
-        });
-      }
-
+  const handleCSVImport = (items: { date: string; description: string; category: string; amount: number; owner: string }[]) => {
+    if (items.length > 0) {
+      importCSV(card.id, items);
+      toast({
+        title: 'Sucesso',
+        description: `${items.length} itens importados com sucesso!`,
+      });
       setIsImportDialogOpen(false);
-    };
-    reader.readAsText(file);
+    }
   };
 
   const totalAmount = filteredItems.reduce((sum, item) => sum + item.amount, 0);
@@ -496,44 +466,42 @@ const CardDetail: React.FC = () => {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="flex-1 h-12 rounded-xl">
-                <Upload className="w-5 h-5 mr-2" />
-                Importar CSV
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Importar CSV</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 mt-4">
-                <div className="border-2 border-dashed border-border rounded-2xl p-8 text-center">
-                  <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground mb-4">
-                    Selecione um arquivo CSV
-                  </p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                  <Button onClick={() => fileInputRef.current?.click()}>
-                    Escolher Arquivo
-                  </Button>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  <p className="font-medium mb-1">Formato esperado:</p>
-                  <code className="bg-secondary p-2 rounded block">
-                    Data,Descrição,Categoria,Valor,Titular
-                  </code>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button 
+            variant="outline" 
+            className="flex-1 h-12 rounded-xl"
+            onClick={() => setIsImportDialogOpen(true)}
+          >
+            <Upload className="w-5 h-5 mr-2" />
+            Importar CSV
+          </Button>
+
+          <Button 
+            variant="outline" 
+            className="flex-1 h-12 rounded-xl"
+            onClick={() => setIsExportDialogOpen(true)}
+          >
+            <FileText className="w-5 h-5 mr-2" />
+            Exportar PDF
+          </Button>
         </div>
+
+        {/* CSV Import Dialog */}
+        <CSVImportDialog
+          open={isImportDialogOpen}
+          onOpenChange={setIsImportDialogOpen}
+          onImport={handleCSVImport}
+        />
+
+        {/* PDF Export Dialog */}
+        <PDFExportDialog
+          open={isExportDialogOpen}
+          onOpenChange={setIsExportDialogOpen}
+          card={card}
+          items={filteredItems}
+          month={selectedMonth}
+          year={selectedYear}
+          ownerTotals={ownerTotals}
+        />
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
