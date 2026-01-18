@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Receipt, Plus, Edit2, Calendar, User, Tag, DollarSign } from 'lucide-react';
+import { Receipt, Plus, Edit2, Calendar, User, Tag, DollarSign, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { BottomNav } from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +54,7 @@ const Expenses: React.FC = () => {
   const [editingExpense, setEditingExpense] = useState<string | null>(null);
   const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
   const [newPersonName, setNewPersonName] = useState('');
+  const [expandedCategories, setExpandedCategories] = useState<{ [key: string]: boolean }>({});
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -83,6 +84,48 @@ const Expenses: React.FC = () => {
   );
 
   const totalMonthExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+  // Group expenses by category
+  const expensesByCategory = sortedExpenses.reduce((acc, expense) => {
+    if (!acc[expense.category]) {
+      acc[expense.category] = [];
+    }
+    acc[expense.category].push(expense);
+    return acc;
+  }, {} as { [key: string]: typeof sortedExpenses });
+
+  // Calculate total per category
+  const categoryTotals = Object.entries(expensesByCategory).map(([category, items]) => ({
+    category,
+    total: items.reduce((sum, item) => sum + item.amount, 0),
+    items,
+  })).sort((a, b) => b.total - a.total);
+
+  // Navigate months
+  const goToPreviousMonth = () => {
+    if (selectedMonth === 0) {
+      setSelectedMonth(11);
+      setSelectedYear(selectedYear - 1);
+    } else {
+      setSelectedMonth(selectedMonth - 1);
+    }
+  };
+
+  const goToNextMonth = () => {
+    if (selectedMonth === 11) {
+      setSelectedMonth(0);
+      setSelectedYear(selectedYear + 1);
+    } else {
+      setSelectedMonth(selectedMonth + 1);
+    }
+  };
+
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [category]: !prev[category],
+    }));
+  };
 
   const handleSubmit = () => {
     if (!formData.description || !formData.category || !formData.amount) {
@@ -187,35 +230,31 @@ const Expenses: React.FC = () => {
             GASTOS DO MÊS
           </h1>
           
-          {/* Month/Year Filters */}
-          <div className="flex gap-2 justify-center">
-            <Select 
-              value={selectedMonth.toString()} 
-              onValueChange={(v) => setSelectedMonth(parseInt(v))}
+          {/* Month/Year Navigation with Arrows */}
+          <div className="flex items-center justify-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goToPreviousMonth}
+              className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-destructive-foreground"
             >
-              <SelectTrigger className="w-32 bg-white/10 border-white/20 text-destructive-foreground">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {months.map(m => (
-                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
             
-            <Select 
-              value={selectedYear.toString()} 
-              onValueChange={(v) => setSelectedYear(parseInt(v))}
+            <div className="flex items-center gap-2 bg-white/10 rounded-2xl px-4 py-2 min-w-[200px] justify-center">
+              <span className="text-lg font-semibold">
+                {getMonthName(selectedMonth)} {selectedYear}
+              </span>
+            </div>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goToNextMonth}
+              className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-destructive-foreground"
             >
-              <SelectTrigger className="w-24 bg-white/10 border-white/20 text-destructive-foreground">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {years.map(y => (
-                  <SelectItem key={y.value} value={y.value}>{y.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <ChevronRight className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       </header>
@@ -235,8 +274,8 @@ const Expenses: React.FC = () => {
           </div>
         </div>
 
-        {/* Expenses List */}
-        <div className="space-y-2">
+        {/* Expenses List - Grouped by Category */}
+        <div className="space-y-3">
           {sortedExpenses.length === 0 ? (
             <div className="card-finance text-center py-12 animate-fade-in">
               <Receipt className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
@@ -244,32 +283,67 @@ const Expenses: React.FC = () => {
               <p className="text-sm text-muted-foreground">para {getMonthName(selectedMonth)} de {selectedYear}</p>
             </div>
           ) : (
-            sortedExpenses.map((expense, index) => (
+            categoryTotals.map((categoryGroup, groupIndex) => (
               <div
-                key={expense.id}
-                onClick={() => openEditDialog(expense)}
-                className="card-finance flex items-center gap-3 cursor-pointer hover:bg-accent/50 transition-colors animate-fade-in"
-                style={{ animationDelay: `${index * 0.03}s` }}
+                key={categoryGroup.category}
+                className="card-finance p-0 overflow-hidden animate-fade-in"
+                style={{ animationDelay: `${groupIndex * 0.05}s` }}
               >
-                <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center text-lg">
-                  {CATEGORY_ICONS[expense.category] || '📝'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-foreground truncate">{expense.description}</p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{formatDate(expense.date)}</span>
-                    <span>•</span>
-                    <span>{expense.category}</span>
-                    <span>•</span>
-                    <span>{expense.owner}</span>
+                {/* Category Header */}
+                <button
+                  onClick={() => toggleCategory(categoryGroup.category)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-accent/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center text-xl">
+                      {CATEGORY_ICONS[categoryGroup.category] || '📝'}
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold text-foreground">{categoryGroup.category}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {categoryGroup.items.length} {categoryGroup.items.length === 1 ? 'item' : 'itens'}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-destructive whitespace-nowrap">
-                    - R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                  <Edit2 className="w-4 h-4 text-muted-foreground" />
-                </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-destructive">
+                      - R$ {categoryGroup.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                    {expandedCategories[categoryGroup.category] ? (
+                      <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </div>
+                </button>
+
+                {/* Category Items (Expandable) */}
+                {expandedCategories[categoryGroup.category] && (
+                  <div className="border-t border-border/50 bg-accent/10">
+                    {categoryGroup.items.map((expense, index) => (
+                      <div
+                        key={expense.id}
+                        onClick={() => openEditDialog(expense)}
+                        className="flex items-center gap-3 p-4 border-b border-border/30 last:border-b-0 cursor-pointer hover:bg-accent/30 transition-colors"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-foreground truncate">{expense.description}</p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>{formatDate(expense.date)}</span>
+                            <span>•</span>
+                            <span>{expense.owner}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-destructive whitespace-nowrap">
+                            - R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                          <Edit2 className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))
           )}

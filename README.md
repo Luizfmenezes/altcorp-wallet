@@ -1,58 +1,48 @@
-# Welcome to your Lovable project
+# AltCorp - Sistema de Gestão Financeira
 
-## Project info
+## Sobre o Projeto
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+Sistema de gestão financeira pessoal desenvolvido com React e TypeScript.
 
-## How can I edit this code?
+## Como editar este código?
 
-There are several ways of editing your application.
+### Desenvolvimento Local
 
-**Use Lovable**
+Requisitos: Node.js & npm instalados - [instalar com nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Siga estes passos:
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Passo 1: Clone o repositório
 git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
+# Passo 2: Navegue até o diretório do projeto
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
+# Passo 3: Instale as dependências
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Passo 4: Inicie o servidor de desenvolvimento
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Editar diretamente no GitHub
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- Navegue até o(s) arquivo(s) desejado(s).
+- Clique no botão "Edit" (ícone de lápis) no topo direito da visualização do arquivo.
+- Faça suas alterações e commit.
 
-**Use GitHub Codespaces**
+### Usar GitHub Codespaces
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- Navegue até a página principal do seu repositório.
+- Clique no botão "Code" (botão verde) próximo ao topo direito.
+- Selecione a aba "Codespaces".
+- Clique em "New codespace" para iniciar um novo ambiente Codespace.
+- Edite os arquivos diretamente no Codespace e faça commit/push das suas alterações.
 
-## What technologies are used for this project?
+## Tecnologias Utilizadas
 
-This project is built with:
+Este projeto foi construído com:
 
 - Vite
 - TypeScript
@@ -60,14 +50,11 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
-## How can I deploy this project?
+## Como fazer deploy deste projeto?
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Você pode fazer deploy em diversas plataformas:
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- Vercel
+- Netlify
+- GitHub Pages
+- Ou qualquer serviço de hospedagem de sites estáticos

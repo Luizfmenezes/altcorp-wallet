@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Banknote, Gift, TrendingUp } from 'lucide-react';
+import { Plus, Trash2, Banknote, Gift, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { BottomNav } from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,25 @@ const Incomes: React.FC = () => {
       style: 'currency',
       currency: 'BRL',
     }).format(amount);
+  };
+
+  // Navigate months
+  const goToPreviousMonth = () => {
+    if (selectedMonth === 0) {
+      setSelectedMonth(11);
+      setSelectedYear(selectedYear - 1);
+    } else {
+      setSelectedMonth(selectedMonth - 1);
+    }
+  };
+
+  const goToNextMonth = () => {
+    if (selectedMonth === 11) {
+      setSelectedMonth(0);
+      setSelectedYear(selectedYear + 1);
+    } else {
+      setSelectedMonth(selectedMonth + 1);
+    }
   };
 
   const handleAddIncome = () => {
@@ -82,49 +101,32 @@ const Incomes: React.FC = () => {
 
       {/* Content */}
       <div className="px-4 md:px-6 lg:px-8 -mt-4 space-y-4 max-w-7xl mx-auto">
-        {/* Month/Year Filters */}
+        {/* Month/Year Navigation with Arrows */}
         <div className="card-finance animate-fade-in">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-                Mês
-              </label>
-              <Select
-                value={selectedMonth.toString()}
-                onValueChange={(value) => setSelectedMonth(parseInt(value))}
-              >
-                <SelectTrigger className="w-full h-11 rounded-xl bg-secondary/50 border-0">
-                  <SelectValue placeholder="Mês" />
-                </SelectTrigger>
-                <SelectContent className="bg-background border shadow-lg z-50">
-                  {MONTHS.map((month) => (
-                    <SelectItem key={month} value={month.toString()}>
-                      {getMonthName(month)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="flex items-center justify-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goToPreviousMonth}
+              className="h-10 w-10 rounded-full bg-primary/10 hover:bg-primary/20"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+            
+            <div className="flex items-center gap-2 bg-primary/10 rounded-2xl px-6 py-2 min-w-[200px] justify-center">
+              <span className="text-lg font-semibold">
+                {getMonthName(selectedMonth)} {selectedYear}
+              </span>
             </div>
-            <div className="flex-1">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-                Ano
-              </label>
-              <Select
-                value={selectedYear.toString()}
-                onValueChange={(value) => setSelectedYear(parseInt(value))}
-              >
-                <SelectTrigger className="w-full h-11 rounded-xl bg-secondary/50 border-0">
-                  <SelectValue placeholder="Ano" />
-                </SelectTrigger>
-                <SelectContent className="bg-background border shadow-lg z-50">
-                  {YEARS.map((year) => (
-                    <SelectItem key={year} value={year.toString()}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goToNextMonth}
+              className="h-10 w-10 rounded-full bg-primary/10 hover:bg-primary/20"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </Button>
           </div>
         </div>
 

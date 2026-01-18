@@ -14,7 +14,7 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({ title, value, type, ic
       currency: 'BRL',
     }).format(amount);
   };
-
+ 
   const getTypeStyles = () => {
     switch (type) {
       case 'positive':
@@ -25,7 +25,7 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({ title, value, type, ic
         return 'text-primary';
     }
   };
-
+ 
   const getBgStyles = () => {
     switch (type) {
       case 'positive':

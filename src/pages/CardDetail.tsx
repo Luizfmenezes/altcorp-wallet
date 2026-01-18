@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Upload, CreditCard, Building2, Users, Pencil, FileText } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Upload, CreditCard, Building2, Users, Pencil, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -201,6 +201,25 @@ const CardDetail: React.FC = () => {
     });
   };
 
+  // Navigate months
+  const goToPreviousMonth = () => {
+    if (selectedMonth === 0) {
+      setSelectedMonth(11);
+      setSelectedYear(selectedYear - 1);
+    } else {
+      setSelectedMonth(selectedMonth - 1);
+    }
+  };
+
+  const goToNextMonth = () => {
+    if (selectedMonth === 11) {
+      setSelectedMonth(0);
+      setSelectedYear(selectedYear + 1);
+    } else {
+      setSelectedMonth(selectedMonth + 1);
+    }
+  };
+
   const handleAddPerson = () => {
     if (newPersonName.trim()) {
       addPerson(newPersonName.trim());
@@ -258,49 +277,33 @@ const CardDetail: React.FC = () => {
 
       {/* Content */}
       <div className="px-4 md:px-6 lg:px-8 -mt-4 space-y-4 max-w-7xl mx-auto">
-        {/* Month/Year Filters */}
+        {/* Month/Year Navigation with Arrows */}
         <div className="card-finance animate-fade-in">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-                Mês da Fatura
-              </label>
-              <Select
-                value={selectedMonth.toString()}
-                onValueChange={(value) => setSelectedMonth(parseInt(value))}
-              >
-                <SelectTrigger className="w-full h-11 rounded-xl bg-secondary/50 border-0">
-                  <SelectValue placeholder="Mês" />
-                </SelectTrigger>
-                <SelectContent className="bg-background border shadow-lg z-50">
-                  {MONTHS.map((month) => (
-                    <SelectItem key={month} value={month.toString()}>
-                      {getMonthName(month)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="flex items-center justify-between gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goToPreviousMonth}
+              className="h-10 w-10 rounded-full bg-primary/10 hover:bg-primary/20"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Fatura de</span>
+              <span className="text-lg font-semibold">
+                {getMonthName(selectedMonth)} {selectedYear}
+              </span>
             </div>
-            <div className="flex-1">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
-                Ano
-              </label>
-              <Select
-                value={selectedYear.toString()}
-                onValueChange={(value) => setSelectedYear(parseInt(value))}
-              >
-                <SelectTrigger className="w-full h-11 rounded-xl bg-secondary/50 border-0">
-                  <SelectValue placeholder="Ano" />
-                </SelectTrigger>
-                <SelectContent className="bg-background border shadow-lg z-50">
-                  {YEARS.map((year) => (
-                    <SelectItem key={year} value={year.toString()}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goToNextMonth}
+              className="h-10 w-10 rounded-full bg-primary/10 hover:bg-primary/20"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </Button>
           </div>
         </div>
 
@@ -326,12 +329,13 @@ const CardDetail: React.FC = () => {
         )}
 
         {/* Action Buttons */}
-        <div className="flex gap-3 md:max-w-md">
+        <div className="flex gap-2 md:max-w-md">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="flex-1 h-12 rounded-xl">
-                <Plus className="w-5 h-5 mr-2" />
-                Adicionar Item
+              <Button className="flex-1 h-10 md:h-12 rounded-xl text-xs md:text-sm px-2 md:px-4">
+                <Plus className="w-4 h-4 md:w-5 md:h-5 md:mr-2" />
+                <span className="hidden sm:inline">Adicionar Item</span>
+                <span className="sm:hidden">Adicionar</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
@@ -468,20 +472,22 @@ const CardDetail: React.FC = () => {
 
           <Button 
             variant="outline" 
-            className="flex-1 h-12 rounded-xl"
+            className="flex-1 h-10 md:h-12 rounded-xl text-xs md:text-sm px-2 md:px-4"
             onClick={() => setIsImportDialogOpen(true)}
           >
-            <Upload className="w-5 h-5 mr-2" />
-            Importar CSV
+            <Upload className="w-4 h-4 md:w-5 md:h-5 md:mr-2" />
+            <span className="hidden sm:inline">Importar CSV</span>
+            <span className="sm:hidden">Importar</span>
           </Button>
 
           <Button 
             variant="outline" 
-            className="flex-1 h-12 rounded-xl"
+            className="flex-1 h-10 md:h-12 rounded-xl text-xs md:text-sm px-2 md:px-4"
             onClick={() => setIsExportDialogOpen(true)}
           >
-            <FileText className="w-5 h-5 mr-2" />
-            Exportar PDF
+            <FileText className="w-4 h-4 md:w-5 md:h-5 md:mr-2" />
+            <span className="hidden sm:inline">Exportar PDF</span>
+            <span className="sm:hidden">Exportar</span>
           </Button>
         </div>
 

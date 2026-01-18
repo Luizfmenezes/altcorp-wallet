@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wallet, Eye, EyeOff, LogIn } from 'lucide-react';
+import { Eye, EyeOff, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,8 +47,12 @@ const Login: React.FC = () => {
       <div className="w-full max-w-sm md:max-w-md animate-scale-in">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-primary mb-4">
-            <Wallet className="w-8 h-8 md:w-10 md:h-10 text-primary-foreground" />
+          <div className="inline-flex items-center justify-center mb-4">
+            <img 
+              src="/altcorp-logo.png" 
+              alt="AltCorp Logo" 
+              className="w-16 h-16 md:w-20 md:h-20 object-contain"
+            />
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
             ALTCORP WALLET

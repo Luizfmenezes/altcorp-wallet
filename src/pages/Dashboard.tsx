@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, MessageCircle, Bell, Settings, CreditCard, Building2, ChevronRight } from 'lucide-react';
 import { BottomNav } from '@/components/BottomNav';
-import { useFinance } from '@/contexts/FinanceContext';
+import { useFinance, getMonthName } from '@/contexts/FinanceContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -85,7 +85,7 @@ const Dashboard: React.FC = () => {
       <motion.header 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-success to-emerald-500 text-white px-5 pt-12 pb-8 rounded-b-[2rem]"
+        className="bg-gradient-to-br from-blue-600 to-sky-500 text-white px-5 pt-12 pb-8 rounded-b-[2rem]"
       >
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -199,7 +199,7 @@ const Dashboard: React.FC = () => {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.3 + index * 0.05 }}
-                  onClick={() => navigate(`/card/${card.id}`)}
+                  onClick={() => navigate(`/wallet/${card.id}`)}
                   className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-3">
@@ -234,19 +234,27 @@ const Dashboard: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          className="grid grid-cols-2 gap-3"
+          className="space-y-3"
         >
-          <div className="bg-card rounded-2xl p-4 border border-border/50">
-            <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1">Receitas</p>
-            <p className="text-lg font-bold text-success">
-              {showBalance ? formatCurrency(getTotalIncome()) : '••••••'}
-            </p>
+          {/* Month Indicator */}
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Resumo de</p>
+            <p className="text-lg font-bold text-foreground">{getMonthName(new Date().getMonth())} {new Date().getFullYear()}</p>
           </div>
-          <div className="bg-card rounded-2xl p-4 border border-border/50">
-            <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1">Despesas</p>
-            <p className="text-lg font-bold text-destructive">
-              {showBalance ? formatCurrency(getTotalExpenses()) : '••••••'}
-            </p>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-card rounded-2xl p-4 border border-border/50">
+              <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1">Receitas</p>
+              <p className="text-lg font-bold text-success">
+                {showBalance ? formatCurrency(getTotalIncome()) : '••••••'}
+              </p>
+            </div>
+            <div className="bg-card rounded-2xl p-4 border border-border/50">
+              <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1">Despesas</p>
+              <p className="text-lg font-bold text-destructive">
+                {showBalance ? formatCurrency(getTotalExpenses()) : '••••••'}
+              </p>
+            </div>
           </div>
         </motion.div>
       </div>
