@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, MessageCircle, Bell, Settings, CreditCard, Building2, ChevronRight } from 'lucide-react';
 import { BottomNav } from '@/components/BottomNav';
+import { MonthlyAnalysis } from '@/components/MonthlyAnalysis';
 import { useFinance, getMonthName } from '@/contexts/FinanceContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -181,11 +182,43 @@ const Dashboard: React.FC = () => {
           </motion.p>
         </motion.div>
 
-        {/* My Accounts Section */}
+        {/* Quick Stats - Moved Before Accounts */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
+          className="space-y-3"
+        >
+          {/* Month Indicator */}
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Resumo de</p>
+            <p className="text-lg font-bold text-foreground">{getMonthName(new Date().getMonth())} {new Date().getFullYear()}</p>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-card rounded-2xl p-4 border border-border/50">
+              <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1">Receitas</p>
+              <p className="text-lg font-bold text-success">
+                {showBalance ? formatCurrency(getTotalIncome()) : '••••••'}
+              </p>
+            </div>
+            <div className="bg-card rounded-2xl p-4 border border-border/50">
+              <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1">Despesas</p>
+              <p className="text-lg font-bold text-destructive">
+                {showBalance ? formatCurrency(getTotalExpenses()) : '••••••'}
+              </p>
+            </div>
+          </div>
+
+          {/* Monthly Analysis Component */}
+          <MonthlyAnalysis />
+        </motion.div>
+
+        {/* My Accounts Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
           className="space-y-4"
         >
           <h2 className="text-lg font-semibold text-foreground">Minhas contas</h2>
@@ -198,7 +231,7 @@ const Dashboard: React.FC = () => {
                   key={card.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 + index * 0.05 }}
+                  transition={{ delay: 0.4 + index * 0.05 }}
                   onClick={() => navigate(`/wallet/${card.id}`)}
                   className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
                 >
@@ -227,35 +260,6 @@ const Dashboard: React.FC = () => {
           >
             Gerenciar contas
           </motion.button>
-        </motion.div>
-
-        {/* Quick Stats */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="space-y-3"
-        >
-          {/* Month Indicator */}
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground">Resumo de</p>
-            <p className="text-lg font-bold text-foreground">{getMonthName(new Date().getMonth())} {new Date().getFullYear()}</p>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-card rounded-2xl p-4 border border-border/50">
-              <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1">Receitas</p>
-              <p className="text-lg font-bold text-success">
-                {showBalance ? formatCurrency(getTotalIncome()) : '••••••'}
-              </p>
-            </div>
-            <div className="bg-card rounded-2xl p-4 border border-border/50">
-              <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1">Despesas</p>
-              <p className="text-lg font-bold text-destructive">
-                {showBalance ? formatCurrency(getTotalExpenses()) : '••••••'}
-              </p>
-            </div>
-          </div>
         </motion.div>
       </div>
 

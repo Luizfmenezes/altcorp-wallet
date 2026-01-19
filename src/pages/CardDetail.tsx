@@ -53,6 +53,10 @@ const CardDetail: React.FC = () => {
     owner: 'Eu',
     isInstallment: false,
     installments: '2',
+    isRecurring: false,
+    frequency: 'monthly' as 'monthly' | 'weekly',
+    splitBetween: [] as string[],
+    totalAmount: '',
   });
 
   const [editItem, setEditItem] = useState({
@@ -121,26 +125,58 @@ const CardDetail: React.FC = () => {
 
     const installments = newItem.isInstallment ? parseInt(newItem.installments) : undefined;
 
-    addInvoiceItem(
-      card.id,
-      {
-        date: newItem.date,
-        description: newItem.description,
-        category: newItem.category,
-        amount: parseFloat(newItem.amount),
-        owner: newItem.owner,
-      },
-      installments
-    );
+    // Check if splitting between multiple people
+    if (newItem.splitBetween.length > 0) {
+      const totalAmount = parseFloat(newItem.totalAmount || newItem.amount);
+      const splitCount = newItem.splitBetween.length;
+      const amountPerPerson = totalAmount / splitCount;
 
-    const message = installments && installments > 1 
-      ? `Item parcelado em ${installments}x adicionado com sucesso!`
-      : 'Item adicionado com sucesso!';
+      // Add one item for each person
+      newItem.splitBetween.forEach(person => {
+        addInvoiceItem(
+          card.id,
+          {
+            date: newItem.date,
+            description: `${newItem.description} (dividido)`,
+            category: newItem.category,
+            amount: amountPerPerson,
+            owner: person,
+            isRecurring: newItem.isRecurring,
+            frequency: newItem.frequency,
+          },
+          installments
+        );
+      });
 
-    toast({
-      title: 'Sucesso',
-      description: message,
-    });
+      toast({
+        title: 'Sucesso',
+        description: `Item dividido entre ${splitCount} ${splitCount === 1 ? 'pessoa' : 'pessoas'}!`,
+      });
+    } else {
+      // Normal add without splitting
+      addInvoiceItem(
+        card.id,
+        {
+          date: newItem.date,
+          description: newItem.description,
+          category: newItem.category,
+          amount: parseFloat(newItem.amount),
+          owner: newItem.owner,
+          isRecurring: newItem.isRecurring,
+          frequency: newItem.frequency,
+        },
+        installments
+      );
+
+      const message = installments && installments > 1 
+        ? `Item parcelado em ${installments}x adicionado com sucesso!`
+        : 'Item adicionado com sucesso!';
+
+      toast({
+        title: 'Sucesso',
+        description: message,
+      });
+    }
 
     setNewItem({
       date: new Date().toISOString().split('T')[0],
@@ -150,6 +186,10 @@ const CardDetail: React.FC = () => {
       owner: 'Eu',
       isInstallment: false,
       installments: '2',
+      isRecurring: false,
+      frequency: 'monthly',
+      splitBetween: [],
+      totalAmount: '',
     });
     setIsAddDialogOpen(false);
   };
@@ -423,6 +463,119 @@ const CardDetail: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Split Payment Toggle */}
+                <div className="space-y-3 p-4 bg-secondary/30 rounded-xl">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="split-toggle" className="text-sm font-medium cursor-pointer">
+                      Dividir Conta?
+                    </Label>
+                    <Switch
+                      id="split-toggle"
+                      checked={newItem.splitBetween.length > 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setNewItem({ ...newItem, splitBetween: [newItem.owner], totalAmount: newItem.amount });
+                        } else {
+                          setNewItem({ ...newItem, splitBetween: [], totalAmount: '' });
+                        }
+                      }}
+                    />
+                  </div>
+                  
+                  {newItem.splitBetween.length > 0 && (
+                    <div className="space-y-3 animate-fade-in">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Valor Total da Conta</Label>
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          value={newItem.totalAmount}
+                          onChange={(e) => setNewItem({ ...newItem, totalAmount: e.target.value })}
+                          className="input-finance"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Dividir entre:</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {people.map((person) => (
+                            <Button
+                              key={person}
+                              type="button"
+                              variant={newItem.splitBetween.includes(person) ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => {
+                                const isSelected = newItem.splitBetween.includes(person);
+                                if (isSelected) {
+                                  setNewItem({
+                                    ...newItem,
+                                    splitBetween: newItem.splitBetween.filter(p => p !== person)
+                                  });
+                                } else {
+                                  setNewItem({
+                                    ...newItem,
+                                    splitBetween: [...newItem.splitBetween, person]
+                                  });
+                                }
+                              }}
+                              className="rounded-xl"
+                            >
+                              {person}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {newItem.totalAmount && newItem.splitBetween.length > 0 && (
+                        <div className="p-3 bg-primary/10 rounded-xl">
+                          <p className="text-xs text-muted-foreground mb-1">Valor por pessoa:</p>
+                          <p className="text-lg font-bold text-primary">
+                            {formatCurrency(parseFloat(newItem.totalAmount) / newItem.splitBetween.length)}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {newItem.splitBetween.length} {newItem.splitBetween.length === 1 ? 'pessoa' : 'pessoas'} selecionada(s)
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Recurring Purchase Toggle */}
+                <div className="space-y-3 p-4 bg-secondary/30 rounded-xl">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="recurring-toggle" className="text-sm font-medium cursor-pointer">
+                      Compra Recorrente?
+                    </Label>
+                    <Switch
+                      id="recurring-toggle"
+                      checked={newItem.isRecurring}
+                      onCheckedChange={(checked) => setNewItem({ ...newItem, isRecurring: checked })}
+                    />
+                  </div>
+                  
+                  {newItem.isRecurring && (
+                    <div className="space-y-2 animate-fade-in">
+                      <Label className="text-xs text-muted-foreground">Frequência</Label>
+                      <Select
+                        value={newItem.frequency}
+                        onValueChange={(value: 'monthly' | 'weekly') => setNewItem({ ...newItem, frequency: value })}
+                      >
+                        <SelectTrigger className="input-finance">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background border shadow-lg z-50">
+                          <SelectItem value="monthly">Mensal</SelectItem>
+                          <SelectItem value="weekly">Semanal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Esta compra será duplicada automaticamente todo mês.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 {/* Installment Toggle */}
                 <div className="space-y-3 p-4 bg-secondary/30 rounded-xl">
                   <div className="flex items-center justify-between">
@@ -464,7 +617,11 @@ const CardDetail: React.FC = () => {
                 </div>
 
                 <Button onClick={handleAddItem} className="w-full h-12 rounded-xl">
-                  {newItem.isInstallment ? `Adicionar em ${newItem.installments}x` : 'Adicionar'}
+                  {newItem.splitBetween.length > 0 
+                    ? `Adicionar (dividido entre ${newItem.splitBetween.length})` 
+                    : newItem.isInstallment 
+                      ? `Adicionar em ${newItem.installments}x` 
+                      : 'Adicionar'}
                 </Button>
               </div>
             </DialogContent>

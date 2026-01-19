@@ -127,6 +127,9 @@ const PDFExportDialog: React.FC<PDFExportDialogProps> = ({
       };
 
       const drawFooter = (pageNum: number, totalPages: number) => {
+        const date = new Date();
+        const dateStr = 'Gerado em ' + date.toLocaleDateString('pt-BR') + ' as ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        
         doc.setDrawColor(230, 230, 230);
         doc.setLineWidth(0.3);
         doc.line(20, pageHeight - 20, pageWidth - 20, pageHeight - 20);
@@ -134,7 +137,8 @@ const PDFExportDialog: React.FC<PDFExportDialogProps> = ({
         doc.setFontSize(8);
         doc.setFont('helvetica', 'normal');
         doc.text('Pagina ' + pageNum + ' de ' + totalPages, 20, pageHeight - 12);
-        doc.text('AltCorp Wallet', pageWidth - 20, pageHeight - 12, { align: 'right' });
+        doc.text('AltCorp Wallet', pageWidth / 2, pageHeight - 12, { align: 'center' });
+        doc.text(dateStr, pageWidth - 20, pageHeight - 12, { align: 'right' });
       };
 
       // PAGINA 1 - CAPA
@@ -208,11 +212,6 @@ const PDFExportDialog: React.FC<PDFExportDialogProps> = ({
       doc.setFont('helvetica', 'normal');
       const itemsText = items.length + ' lancamento' + (items.length !== 1 ? 's' : '') + ' nesta fatura';
       doc.text(itemsText, pageWidth / 2, totalBoxY + 90, { align: 'center' });
-      
-      const date = new Date();
-      doc.setFontSize(9);
-      const dateStr = 'Gerado em ' + date.toLocaleDateString('pt-BR') + ' as ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      doc.text(dateStr, pageWidth / 2, pageHeight - 25, { align: 'center' });
 
       // PAGINA 2 - DETALHAMENTO
       doc.addPage();
@@ -245,6 +244,7 @@ const PDFExportDialog: React.FC<PDFExportDialogProps> = ({
         head: [['Data', 'Descricao', 'Categoria', 'Titular', 'Valor']],
         body: tableData,
         theme: 'striped',
+        showHead: 'everyPage',
         styles: {
           fontSize: 9,
           cellPadding: 8,
@@ -270,24 +270,49 @@ const PDFExportDialog: React.FC<PDFExportDialogProps> = ({
           4: { cellWidth: 32, halign: 'right', textColor: [37, 99, 235], fontStyle: 'bold' },
         },
         alternateRowStyles: { fillColor: [248, 250, 255] },
-        margin: { left: 20, right: 20 },
+        margin: { left: 20, right: 20, top: 60, bottom: 40 },
         didDrawPage: (data) => {
-          if (data.pageNumber > 1) drawHeader();
+          // Só desenha header/footer nas páginas de continuação da tabela (página 3+)
+          const currentPage = doc.getCurrentPageInfo().pageNumber;
+          if (currentPage > 2) {
+            drawHeader();
+          }
         },
       });
       
+      // Desenha o TOTAL na última página onde a tabela terminou
       const finalTableY = (doc as any).lastAutoTable?.finalY || 200;
-      doc.setFillColor(37, 99, 235);
-      doc.roundedRect(20, finalTableY + 5, pageWidth - 40, 25, 4, 4, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text('TOTAL', 30, finalTableY + 20);
-      doc.setFontSize(14);
-      doc.text(formatCurrency(totalAmount), pageWidth - 30, finalTableY + 20, { align: 'right' });
-      drawFooter(2, 4);
+      const finalTablePage = doc.getCurrentPageInfo().pageNumber;
+      
+      // Verifica se há espaço para o TOTAL na página atual (precisa de ~35px + 40px do footer = 75px)
+      if (finalTableY + 75 > pageHeight - 40) {
+        // Não há espaço, cria nova página
+        doc.addPage();
+        doc.setFillColor(255, 255, 255);
+        doc.rect(0, 0, pageWidth, pageHeight, 'F');
+        drawHeader();
+        
+        doc.setFillColor(37, 99, 235);
+        doc.roundedRect(20, 80, pageWidth - 40, 25, 4, 4, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('TOTAL', 30, 95);
+        doc.setFontSize(14);
+        doc.text(formatCurrency(totalAmount), pageWidth - 30, 95, { align: 'right' });
+      } else {
+        // Há espaço, desenha na página atual
+        doc.setFillColor(37, 99, 235);
+        doc.roundedRect(20, finalTableY + 10, pageWidth - 40, 25, 4, 4, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('TOTAL', 30, finalTableY + 25);
+        doc.setFontSize(14);
+        doc.text(formatCurrency(totalAmount), pageWidth - 30, finalTableY + 25, { align: 'right' });
+      }
 
-      // PAGINA 3 - GRAFICO DE GASTOS
+      // PAGINA 3+ - GRAFICO DE GASTOS (número da página depende se a tabela continuou)
       doc.addPage();
       doc.setFillColor(255, 255, 255);
       doc.rect(0, 0, pageWidth, pageHeight, 'F');
@@ -366,10 +391,8 @@ const PDFExportDialog: React.FC<PDFExportDialogProps> = ({
         doc.setFont('helvetica', 'bold');
         doc.text(formatCurrency(totalAmount), pageWidth / 2, 170, { align: 'center' });
       }
-      
-      drawFooter(3, 4);
 
-      // PAGINA 4 - DETALHAMENTO POR TITULAR
+      // PAGINA 4+ - DETALHAMENTO POR TITULAR
       doc.addPage();
       doc.setFillColor(255, 255, 255);
       doc.rect(0, 0, pageWidth, pageHeight, 'F');
@@ -433,7 +456,12 @@ const PDFExportDialog: React.FC<PDFExportDialogProps> = ({
         doc.text(formatCurrency(totalAmount), pageWidth - 30, finalY + 28, { align: 'right' });
       }
       
-      drawFooter(4, 4);
+      // Agora que todas as páginas foram criadas, adiciona os footers
+      const totalPages = doc.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        drawFooter(i, totalPages);
+      }
 
       const fileName = 'Fatura_' + card.name.replace(/[^a-zA-Z0-9]/g, '_') + '_' + MONTH_NAMES[month] + '_' + year + '.pdf';
       doc.save(fileName);

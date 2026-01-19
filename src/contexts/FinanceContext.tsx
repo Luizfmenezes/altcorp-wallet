@@ -16,6 +16,16 @@ export interface Expense {
   category: string;
   amount: number;
   owner: string;
+  isRecurring?: boolean;
+  frequency?: 'monthly' | 'weekly';
+}
+
+export interface Budget {
+  id: string;
+  category: string;
+  limit: number;
+  month: number;
+  year: number;
 }
 
 export interface InvoiceItem {
@@ -25,6 +35,8 @@ export interface InvoiceItem {
   category: string;
   amount: number;
   owner: string;
+  isRecurring?: boolean;
+  frequency?: 'monthly' | 'weekly';
   installmentInfo?: {
     currentInstallment: number;
     totalInstallments: number;
@@ -45,6 +57,7 @@ interface FinanceContextType {
   expenses: Expense[];
   cards: Card[];
   people: string[];
+  budgets: Budget[];
   selectedMonth: number;
   selectedYear: number;
   setSelectedMonth: (month: number) => void;
@@ -65,10 +78,16 @@ interface FinanceContextType {
   setPeople: (people: string[]) => void;
   setInitialIncome: (amount: number) => void;
   setInitialCards: (cards: Array<{ name: string; limit: number }>) => void;
+  setBudget: (category: string, limit: number) => void;
+  removeBudget: (category: string) => void;
+  getBudgetStatus: (category: string) => { spent: number; limit: number; percentage: number };
+  checkRecurringExpenses: () => void;
   getTotalIncome: () => number;
   getTotalExpenses: () => number;
   getTotalDirectExpenses: () => number;
   getBalance: () => number;
+  getPreviousMonthExpenses: () => number;
+  getExpensesByCategory: () => { category: string; amount: number }[];
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -87,6 +106,10 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
   const [people, setPeople] = useState<string[]>(['Eu', 'Ana', 'Outro']);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [lastRecurringCheck, setLastRecurringCheck] = useState<string>(
+    localStorage.getItem('lastRecurringCheck') || ''
+  );
 
   const [incomes, setIncomes] = useState<Income[]>([
     { id: '1', description: 'Salário', amount: 5000, type: 'fixed' },
@@ -327,12 +350,220 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     return getTotalIncome() - getTotalExpenses();
   };
 
+  // Budget Management
+  const setBudget = (category: string, limit: number) => {
+    setBudgets(prev => {
+      const existing = prev.find(
+        b => b.category === category && b.month === selectedMonth && b.year === selectedYear
+      );
+      if (existing) {
+        return prev.map(b =>
+          b.id === existing.id ? { ...b, limit } : b
+        );
+      }
+      return [...prev, {
+        id: generateId(),
+        category,
+        limit,
+        month: selectedMonth,
+        year: selectedYear,
+      }];
+    });
+  };
+
+  const removeBudget = (category: string) => {
+    setBudgets(prev =>
+      prev.filter(
+        b => !(b.category === category && b.month === selectedMonth && b.year === selectedYear)
+      )
+    );
+  };
+
+  const getBudgetStatus = (category: string) => {
+    const budget = budgets.find(
+      b => b.category === category && b.month === selectedMonth && b.year === selectedYear
+    );
+    
+    if (!budget) {
+      return { spent: 0, limit: 0, percentage: 0 };
+    }
+
+    // Calculate spent from both direct expenses and card expenses
+    const directSpent = expenses
+      .filter(exp => {
+        const expDate = new Date(exp.date);
+        return (
+          exp.category === category &&
+          expDate.getMonth() === selectedMonth &&
+          expDate.getFullYear() === selectedYear
+        );
+      })
+      .reduce((sum, exp) => sum + exp.amount, 0);
+
+    const cardSpent = cards.reduce((total, card) => {
+      return total + card.invoiceItems
+        .filter(item => {
+          const itemDate = new Date(item.date);
+          return (
+            item.category === category &&
+            itemDate.getMonth() === selectedMonth &&
+            itemDate.getFullYear() === selectedYear
+          );
+        })
+        .reduce((sum, item) => sum + item.amount, 0);
+    }, 0);
+
+    const spent = directSpent + cardSpent;
+    const percentage = budget.limit > 0 ? (spent / budget.limit) * 100 : 0;
+
+    return { spent, limit: budget.limit, percentage };
+  };
+
+  // Recurring Expenses Logic
+  const checkRecurringExpenses = () => {
+    const today = new Date();
+    const currentMonthYear = `${today.getFullYear()}-${today.getMonth()}`;
+    
+    // Check if we already processed this month
+    if (lastRecurringCheck === currentMonthYear) {
+      return;
+    }
+
+    // Get last month's date
+    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const lastMonthNum = lastMonth.getMonth();
+    const lastMonthYear = lastMonth.getFullYear();
+
+    // Find recurring expenses from last month
+    const recurringExpenses = expenses.filter(exp => {
+      const expDate = new Date(exp.date);
+      return (
+        exp.isRecurring &&
+        exp.frequency === 'monthly' &&
+        expDate.getMonth() === lastMonthNum &&
+        expDate.getFullYear() === lastMonthYear
+      );
+    });
+
+    // Clone them to current month
+    if (recurringExpenses.length > 0) {
+      const newExpenses = recurringExpenses.map(exp => {
+        const newDate = new Date(today.getFullYear(), today.getMonth(), new Date(exp.date).getDate());
+        return {
+          ...exp,
+          id: generateId(),
+          date: newDate.toISOString().split('T')[0],
+        };
+      });
+
+      setExpenses(prev => [...prev, ...newExpenses]);
+      
+      // Update last check
+      localStorage.setItem('lastRecurringCheck', currentMonthYear);
+      setLastRecurringCheck(currentMonthYear);
+    }
+
+    // Check recurring card invoice items (reuse same date variables)
+    cards.forEach(card => {
+      const recurringItems = card.invoiceItems.filter(item => {
+        const itemDate = new Date(item.date);
+        return (
+          item.isRecurring &&
+          item.frequency === 'monthly' &&
+          itemDate.getMonth() === lastMonthNum &&
+          itemDate.getFullYear() === lastMonthYear
+        );
+      });
+
+      if (recurringItems.length > 0) {
+        const newItems = recurringItems.map(item => {
+          const newDate = new Date(today.getFullYear(), today.getMonth(), new Date(item.date).getDate());
+          return {
+            ...item,
+            id: generateId(),
+            date: newDate.toISOString().split('T')[0],
+          };
+        });
+
+        // Add new recurring items to the card
+        const updatedCard = {
+          ...card,
+          invoiceItems: [...card.invoiceItems, ...newItems],
+        };
+
+        setCards(prev => prev.map(c => c.id === card.id ? updatedCard : c));
+      }
+    });
+  };
+
+  // Get previous month expenses for comparison
+  const getPreviousMonthExpenses = () => {
+    const prevMonth = selectedMonth === 0 ? 11 : selectedMonth - 1;
+    const prevYear = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
+
+    const cardExpenses = cards.reduce((total, card) => {
+      return total + card.invoiceItems
+        .filter(item => {
+          const itemDate = new Date(item.date);
+          return itemDate.getMonth() === prevMonth && itemDate.getFullYear() === prevYear;
+        })
+        .reduce((sum, item) => sum + item.amount, 0);
+    }, 0);
+
+    const directExpenses = expenses
+      .filter(exp => {
+        const expDate = new Date(exp.date);
+        return expDate.getMonth() === prevMonth && expDate.getFullYear() === prevYear;
+      })
+      .reduce((sum, exp) => sum + exp.amount, 0);
+
+    return cardExpenses + directExpenses;
+  };
+
+  // Get expenses grouped by category
+  const getExpensesByCategory = () => {
+    const categoryMap: { [key: string]: number } = {};
+
+    // Direct expenses
+    expenses
+      .filter(exp => {
+        const expDate = new Date(exp.date);
+        return expDate.getMonth() === selectedMonth && expDate.getFullYear() === selectedYear;
+      })
+      .forEach(exp => {
+        categoryMap[exp.category] = (categoryMap[exp.category] || 0) + exp.amount;
+      });
+
+    // Card expenses
+    cards.forEach(card => {
+      card.invoiceItems
+        .filter(item => {
+          const itemDate = new Date(item.date);
+          return itemDate.getMonth() === selectedMonth && itemDate.getFullYear() === selectedYear;
+        })
+        .forEach(item => {
+          categoryMap[item.category] = (categoryMap[item.category] || 0) + item.amount;
+        });
+    });
+
+    return Object.entries(categoryMap).map(([category, amount]) => ({
+      category,
+      amount,
+    }));
+  };
+
+  // Check recurring expenses on mount
+  React.useEffect(() => {
+    checkRecurringExpenses();
+  }, []);
+
   return (
     <FinanceContext.Provider value={{
       incomes,
       expenses,
       cards,
       people,
+      budgets,
       selectedMonth,
       selectedYear,
       setSelectedMonth,
@@ -353,10 +584,16 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       setPeople: setPeopleList,
       setInitialIncome,
       setInitialCards,
+      setBudget,
+      removeBudget,
+      getBudgetStatus,
+      checkRecurringExpenses,
       getTotalIncome,
       getTotalExpenses,
       getTotalDirectExpenses,
       getBalance,
+      getPreviousMonthExpenses,
+      getExpensesByCategory,
     }}>
       {children}
     </FinanceContext.Provider>

@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
-import { Receipt, Plus, Edit2, Calendar, User, Tag, DollarSign, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { Receipt, Plus, Edit2, Calendar, User, Tag, DollarSign, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, RefreshCw } from 'lucide-react';
 import { BottomNav } from '@/components/BottomNav';
+import { CalendarView } from '@/components/CalendarView';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { useFinance, getMonthName } from '@/contexts/FinanceContext';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const CATEGORIES = [
   'Alimentação',
@@ -55,6 +60,7 @@ const Expenses: React.FC = () => {
   const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
   const [newPersonName, setNewPersonName] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<{ [key: string]: boolean }>({});
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -62,6 +68,8 @@ const Expenses: React.FC = () => {
     category: '',
     amount: '',
     owner: 'Eu',
+    isRecurring: false,
+    frequency: 'monthly' as 'monthly' | 'weekly',
   });
 
   const months = Array.from({ length: 12 }, (_, i) => ({
@@ -143,6 +151,8 @@ const Expenses: React.FC = () => {
       category: formData.category,
       amount: parseFloat(formData.amount),
       owner: formData.owner,
+      isRecurring: formData.isRecurring,
+      frequency: formData.frequency,
     });
 
     toast({
@@ -170,6 +180,8 @@ const Expenses: React.FC = () => {
       category: formData.category,
       amount: parseFloat(formData.amount),
       owner: formData.owner,
+      isRecurring: formData.isRecurring,
+      frequency: formData.frequency,
     });
 
     toast({
@@ -190,6 +202,8 @@ const Expenses: React.FC = () => {
       category: expense.category,
       amount: expense.amount.toString(),
       owner: expense.owner,
+      isRecurring: expense.isRecurring || false,
+      frequency: expense.frequency || 'monthly',
     });
     setIsEditOpen(true);
   };
@@ -201,6 +215,8 @@ const Expenses: React.FC = () => {
       category: '',
       amount: '',
       owner: 'Eu',
+      isRecurring: false,
+      frequency: 'monthly',
     });
   };
 
@@ -261,6 +277,26 @@ const Expenses: React.FC = () => {
 
       {/* Content */}
       <div className="px-4 md:px-6 lg:px-8 -mt-4 max-w-4xl mx-auto">
+        {/* View Mode Toggle */}
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="card-finance mb-4"
+        >
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'calendar')} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="list" className="flex items-center gap-2">
+                <List className="w-4 h-4" />
+                Lista
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className="flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                Calendário
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </motion.div>
+
         {/* Total Summary */}
         <div className="card-finance mb-4 animate-fade-in">
           <div className="flex items-center justify-between">
@@ -274,8 +310,28 @@ const Expenses: React.FC = () => {
           </div>
         </div>
 
-        {/* Expenses List - Grouped by Category */}
-        <div className="space-y-3">
+        {/* View Content */}
+        <AnimatePresence mode="wait">
+          {viewMode === 'calendar' ? (
+            <motion.div
+              key="calendar"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <CalendarView month={selectedMonth} year={selectedYear} />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="list"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-3"
+            >
+              {/* Expenses List - Grouped by Category */}
           {sortedExpenses.length === 0 ? (
             <div className="card-finance text-center py-12 animate-fade-in">
               <Receipt className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
@@ -347,7 +403,9 @@ const Expenses: React.FC = () => {
               </div>
             ))
           )}
-        </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Add Expense Dialog */}
@@ -453,6 +511,45 @@ const Expenses: React.FC = () => {
                 </DialogContent>
               </Dialog>
             </div>
+
+            {/* Recurring Expense Option */}
+            <div className="space-y-3 p-4 bg-muted/50 rounded-xl">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="isRecurring"
+                  checked={formData.isRecurring}
+                  onCheckedChange={(checked) => 
+                    setFormData({ ...formData, isRecurring: checked as boolean })
+                  }
+                />
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 text-muted-foreground" />
+                  <Label 
+                    htmlFor="isRecurring"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Despesa Recorrente
+                  </Label>
+                </div>
+              </div>
+              {formData.isRecurring && (
+                <Select 
+                  value={formData.frequency} 
+                  onValueChange={(v) => setFormData({ ...formData, frequency: v as 'monthly' | 'weekly' })}
+                >
+                  <SelectTrigger className="input-finance">
+                    <SelectValue placeholder="Frequência" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monthly">Mensal</SelectItem>
+                    <SelectItem value="weekly">Semanal</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Despesas recorrentes serão automaticamente recriadas no próximo período
+              </p>
+            </div>
             
             <Button onClick={handleSubmit} className="w-full h-12 rounded-xl">
               Adicionar Gasto
@@ -531,6 +628,45 @@ const Expenses: React.FC = () => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Recurring Expense Option */}
+            <div className="space-y-3 p-4 bg-muted/50 rounded-xl">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="isRecurringEdit"
+                  checked={formData.isRecurring}
+                  onCheckedChange={(checked) => 
+                    setFormData({ ...formData, isRecurring: checked as boolean })
+                  }
+                />
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 text-muted-foreground" />
+                  <Label 
+                    htmlFor="isRecurringEdit"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Despesa Recorrente
+                  </Label>
+                </div>
+              </div>
+              {formData.isRecurring && (
+                <Select 
+                  value={formData.frequency} 
+                  onValueChange={(v) => setFormData({ ...formData, frequency: v as 'monthly' | 'weekly' })}
+                >
+                  <SelectTrigger className="input-finance">
+                    <SelectValue placeholder="Frequência" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monthly">Mensal</SelectItem>
+                    <SelectItem value="weekly">Semanal</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Despesas recorrentes serão automaticamente recriadas no próximo período
+              </p>
             </div>
             
             <div className="flex gap-2">
