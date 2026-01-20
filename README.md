@@ -1,60 +1,252 @@
-# AltCorp - Sistema de Gestão Financeira
+# AltCorp Wallet 💰
 
-## Sobre o Projeto
+Sistema profissional de gerenciamento financeiro pessoal desenvolvido com arquitetura moderna em containers Docker.
 
-Sistema de gestão financeira pessoal desenvolvido com React e TypeScript.
+## 🏗️ Arquitetura
 
-## Como editar este código?
+O projeto é dividido em três serviços principais:
 
-### Desenvolvimento Local
+- **Frontend**: React + TypeScript + Vite + TailwindCSS + shadcn/ui (Nginx)
+- **Backend**: Python + FastAPI + SQLAlchemy
+- **Database**: PostgreSQL 16
 
-Requisitos: Node.js & npm instalados - [instalar com nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Todos os serviços rodam em containers Docker orquestrados via Docker Compose.
 
-Siga estes passos:
+## 📋 Pré-requisitos
 
-```sh
-# Passo 1: Clone o repositório
-git clone <YOUR_GIT_URL>
+- Docker Desktop (Windows/Mac) ou Docker Engine + Docker Compose (Linux)
+- Git
 
-# Passo 2: Navegue até o diretório do projeto
-cd <YOUR_PROJECT_NAME>
+## 🚀 Instalação e Execução
 
-# Passo 3: Instale as dependências
-npm i
+### 1. Clone o repositório
 
-# Passo 4: Inicie o servidor de desenvolvimento
-npm run dev
+```bash
+git clone <repository-url>
+cd altcorp-wallet
 ```
 
-### Editar diretamente no GitHub
+### 2. Configure as variáveis de ambiente
 
-- Navegue até o(s) arquivo(s) desejado(s).
-- Clique no botão "Edit" (ícone de lápis) no topo direito da visualização do arquivo.
-- Faça suas alterações e commit.
+```bash
+# Copie o arquivo de exemplo
+cp .env.example .env
 
-### Usar GitHub Codespaces
+# Edite o arquivo .env com suas configurações (opcional)
+# Valores padrão já estão configurados para desenvolvimento
+```
 
-- Navegue até a página principal do seu repositório.
-- Clique no botão "Code" (botão verde) próximo ao topo direito.
-- Selecione a aba "Codespaces".
-- Clique em "New codespace" para iniciar um novo ambiente Codespace.
-- Edite os arquivos diretamente no Codespace e faça commit/push das suas alterações.
+### 3. Inicie os containers
 
-## Tecnologias Utilizadas
+```bash
+# Construir e iniciar todos os serviços
+docker-compose up -d --build
 
-Este projeto foi construído com:
+# Ou apenas iniciar (sem rebuild)
+docker-compose up -d
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### 4. Acesse a aplicação
 
-## Como fazer deploy deste projeto?
+- **Frontend**: http://localhost
+- **Backend API**: http://localhost:8000
+- **Documentação API**: http://localhost:8000/api/docs
+- **Database**: localhost:5432
 
-Você pode fazer deploy em diversas plataformas:
+## 📦 Estrutura do Projeto
 
-- Vercel
-- Netlify
-- GitHub Pages
-- Ou qualquer serviço de hospedagem de sites estáticos
+```
+altcorp-wallet/
+├── frontend/                 # Aplicação React
+│   ├── src/
+│   │   ├── components/      # Componentes React
+│   │   ├── contexts/        # Context API
+│   │   ├── hooks/           # Custom Hooks
+│   │   ├── pages/           # Páginas
+│   │   └── lib/             # Utilitários
+│   ├── Dockerfile
+│   └── nginx.conf
+├── backend/                  # API FastAPI
+│   ├── app/
+│   │   ├── api/v1/          # Endpoints da API
+│   │   ├── core/            # Configurações
+│   │   ├── database/        # Models e sessão DB
+│   │   └── schemas/         # Schemas Pydantic
+│   ├── main.py
+│   ├── requirements.txt
+│   └── Dockerfile
+├── database/                 # Scripts PostgreSQL
+│   ├── init.sql
+│   └── README.md
+└── docker-compose.yml        # Orquestração
+```
+
+## 🎯 Funcionalidades
+
+### Implementadas
+
+✅ Gerenciamento de receitas (fixas e extras)
+✅ Controle de despesas diretas
+✅ Gestão de cartões de crédito/débito
+✅ Lançamentos em cartões com parcelamento
+✅ Definição de orçamentos por categoria
+✅ Análise mensal completa
+✅ Comparativo de gastos (mês atual vs anterior)
+✅ Gastos por cartão com comparativo mensal
+✅ Visualização de saldo e balanço
+✅ Gráficos e estatísticas
+✅ Tema claro/escuro
+✅ Interface responsiva
+
+### Backend API Endpoints
+
+#### Receitas (`/api/v1/incomes`)
+- `GET /` - Listar todas as receitas
+- `GET /{id}` - Buscar receita por ID
+- `POST /` - Criar nova receita
+- `DELETE /{id}` - Remover receita
+
+#### Despesas (`/api/v1/expenses`)
+- `GET /` - Listar despesas (com filtros)
+- `GET /{id}` - Buscar despesa por ID
+- `POST /` - Criar nova despesa
+- `PUT /{id}` - Atualizar despesa
+- `DELETE /{id}` - Remover despesa
+
+#### Cartões (`/api/v1/cards`)
+- `GET /` - Listar cartões
+- `GET /{id}` - Buscar cartão por ID
+- `POST /` - Criar novo cartão
+- `DELETE /{id}` - Remover cartão
+- `GET /{id}/items` - Listar itens da fatura
+- `POST /{id}/items` - Adicionar item (com parcelamento)
+- `PUT /{id}/items/{item_id}` - Atualizar item
+- `DELETE /{id}/items/{item_id}` - Remover item
+
+#### Orçamentos (`/api/v1/budgets`)
+- `GET /` - Listar orçamentos
+- `POST /` - Criar/atualizar orçamento
+- `DELETE /{id}` - Remover orçamento
+- `DELETE /category/{category}` - Remover por categoria
+
+## 🛠️ Comandos Úteis
+
+### Docker Compose
+
+```bash
+# Iniciar serviços
+docker-compose up -d
+
+# Parar serviços
+docker-compose down
+
+# Ver logs
+docker-compose logs -f
+
+# Ver logs de um serviço específico
+docker-compose logs -f backend
+docker-compose logs -f frontend
+docker-compose logs -f database
+
+# Reconstruir imagens
+docker-compose build
+
+# Reiniciar um serviço
+docker-compose restart backend
+
+# Acessar shell do container
+docker-compose exec backend bash
+docker-compose exec database psql -U walletuser -d altcorp_wallet
+
+# Remover volumes (CUIDADO: apaga dados)
+docker-compose down -v
+```
+
+### Backend Development
+
+```bash
+# Acessar container do backend
+docker-compose exec backend bash
+
+# Instalar nova dependência
+pip install <package>
+pip freeze > requirements.txt
+
+# Executar migrações (quando implementadas)
+alembic upgrade head
+```
+
+### Database
+
+```bash
+# Acessar PostgreSQL
+docker-compose exec database psql -U walletuser -d altcorp_wallet
+
+# Backup do banco
+docker-compose exec database pg_dump -U walletuser altcorp_wallet > backup.sql
+
+# Restaurar backup
+docker-compose exec -T database psql -U walletuser -d altcorp_wallet < backup.sql
+```
+
+## 🔐 Segurança
+
+### Usuário Padrão (Desenvolvimento)
+
+- **Email**: admin@altcorp.com
+- **Senha**: admin123
+
+⚠️ **IMPORTANTE**: Altere as credenciais padrão em produção!
+
+### Variáveis de Ambiente
+
+Nunca commite o arquivo `.env` com credenciais reais. Use `.env.example` como template.
+
+## 🧪 Testes
+
+```bash
+# Backend tests (quando implementados)
+docker-compose exec backend pytest
+
+# Frontend tests
+docker-compose exec frontend npm test
+```
+
+## 📈 Próximas Funcionalidades
+
+- [ ] Autenticação e autorização JWT
+- [ ] Multi-usuário
+- [ ] Exportar relatórios em PDF
+- [ ] Importar extratos CSV
+- [ ] Notificações de orçamento
+- [ ] Metas financeiras
+- [ ] Investimentos
+- [ ] Relatórios personalizados
+- [ ] App mobile
+
+## 🤝 Contribuindo
+
+1. Fork o projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
+
+## 📝 Licença
+
+Este projeto está sob a licença MIT.
+
+## 👥 Autores
+
+- **Seu Nome** - *Desenvolvimento inicial*
+
+## 🙏 Agradecimentos
+
+- shadcn/ui pelos componentes
+- FastAPI pela excelente framework
+- PostgreSQL pelo banco robusto
+- Docker pela containerização
+
+---
+
+**Desenvolvido com ❤️ para facilitar sua vida financeira**

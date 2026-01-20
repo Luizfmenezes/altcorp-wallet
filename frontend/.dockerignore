@@ -1,0 +1,5 @@
+# Ignore frontend node_modules and build files in root
+node_modules
+dist
+.dockerignore
+Dockerfile

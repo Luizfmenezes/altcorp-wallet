@@ -1,0 +1,9 @@
+from fastapi import APIRouter
+from app.api.v1 import incomes, expenses, cards, budgets
+
+router = APIRouter()
+
+router.include_router(incomes.router, prefix="/incomes", tags=["incomes"])
+router.include_router(expenses.router, prefix="/expenses", tags=["expenses"])
+router.include_router(cards.router, prefix="/cards", tags=["cards"])
+router.include_router(budgets.router, prefix="/budgets", tags=["budgets"])

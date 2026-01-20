@@ -4,7 +4,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Progress } from '@/components/ui/progress';
 import { useFinance } from '@/contexts/FinanceContext';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
@@ -31,6 +30,9 @@ export const MonthlyAnalysis: React.FC = () => {
     getTotalExpenses,
     getPreviousMonthExpenses,
     getExpensesByCategory,
+    cards,
+    selectedMonth,
+    selectedYear,
   } = useFinance();
   const { toast } = useToast();
 
@@ -46,6 +48,37 @@ export const MonthlyAnalysis: React.FC = () => {
 
   const expensesByCategory = getExpensesByCategory();
 
+  // Calcular gastos por cartão no mês atual
+  const getCardExpenses = (cardId: string, month: number, year: number) => {
+    const card = cards.find(c => c.id === cardId);
+    if (!card) return 0;
+    
+    return card.invoiceItems
+      .filter(item => {
+        const itemDate = new Date(item.date);
+        return itemDate.getMonth() === month && itemDate.getFullYear() === year;
+      })
+      .reduce((sum, item) => sum + item.amount, 0);
+  };
+
+  const cardComparison = cards.map(card => {
+    const prevMonth = selectedMonth === 0 ? 11 : selectedMonth - 1;
+    const prevYear = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
+    
+    const currentTotal = getCardExpenses(card.id, selectedMonth, selectedYear);
+    const previousTotal = getCardExpenses(card.id, prevMonth, prevYear);
+    const cardDifference = currentTotal - previousTotal;
+    
+    return {
+      id: card.id,
+      name: card.name,
+      color: card.color,
+      currentTotal,
+      previousTotal,
+      difference: cardDifference,
+    };
+  });
+
   const handleAddBudget = () => {
     if (!selectedCategory || !budgetLimit) {
       toast({
@@ -56,7 +89,7 @@ export const MonthlyAnalysis: React.FC = () => {
       return;
     }
 
-    setBudget(selectedCategory, parseFloat(budgetLimit));
+    setBudget(selectedCategory, Number.parseFloat(budgetLimit));
     setSelectedCategory('');
     setBudgetLimit('');
     setIsBudgetDialogOpen(false);
@@ -131,6 +164,56 @@ export const MonthlyAnalysis: React.FC = () => {
             </div>
           </div>
 
+          {/* Gastos por Cartão */}
+          {cards.length > 0 && (
+            <div className="bg-muted/50 rounded-xl p-4">
+              <h4 className="font-semibold mb-3">Gastos por Cartão</h4>
+              <div className="space-y-3">
+                {cardComparison.map(card => {
+                  const hasExpenses = card.currentTotal > 0 || card.previousTotal > 0;
+                  if (!hasExpenses) return null;
+                  
+                  return (
+                    <div key={card.id} className="bg-background rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: card.color }}
+                        />
+                        <span className="font-medium text-sm">{card.name}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Mês Atual</p>
+                          <p className="text-lg font-bold">{formatCurrency(card.currentTotal)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Mês Anterior</p>
+                          <p className="text-lg font-semibold text-muted-foreground">{formatCurrency(card.previousTotal)}</p>
+                        </div>
+                      </div>
+                      {card.difference !== 0 && (
+                        <div className="mt-2 pt-2 border-t border-muted flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Diferença</span>
+                          <div className="flex items-center gap-1">
+                            {card.difference > 0 ? (
+                              <TrendingUp className="w-3 h-3 text-red-500" />
+                            ) : (
+                              <TrendingDown className="w-3 h-3 text-green-500" />
+                            )}
+                            <span className={`text-sm font-semibold ${card.difference > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                              {card.difference > 0 ? '+' : ''}{formatCurrency(card.difference)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Orçamentos por Categoria */}
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -148,9 +231,9 @@ export const MonthlyAnalysis: React.FC = () => {
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Categoria</label>
+                      <label htmlFor="budget-category" className="text-sm font-medium mb-2 block">Categoria</label>
                       <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                        <SelectTrigger>
+                        <SelectTrigger id="budget-category">
                           <SelectValue placeholder="Selecione a categoria" />
                         </SelectTrigger>
                         <SelectContent>
@@ -161,8 +244,9 @@ export const MonthlyAnalysis: React.FC = () => {
                       </Select>
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Limite (R$)</label>
+                      <label htmlFor="budget-limit" className="text-sm font-medium mb-2 block">Limite (R$)</label>
                       <Input
+                        id="budget-limit"
                         type="number"
                         placeholder="0.00"
                         value={budgetLimit}
@@ -187,7 +271,6 @@ export const MonthlyAnalysis: React.FC = () => {
               <div className="space-y-4">
                 {budgets.map(budget => {
                   const status = getBudgetStatus(budget.category);
-                  const categoryExpense = expensesByCategory.find(e => e.category === budget.category);
                   
                   return (
                     <motion.div
@@ -241,7 +324,7 @@ export const MonthlyAnalysis: React.FC = () => {
             <div>
               <h4 className="font-semibold mb-3">Gastos por Categoria</h4>
               <div className="space-y-2">
-                {expensesByCategory
+                {[...expensesByCategory]
                   .sort((a, b) => b.amount - a.amount)
                   .map(({ category, amount }) => {
                     const hasBudget = budgets.some(b => b.category === category);
