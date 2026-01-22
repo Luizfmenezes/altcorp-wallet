@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,6 +14,7 @@ import Expenses from "./pages/Expenses";
 import Wallet from "./pages/Wallet";
 import CardDetail from "./pages/CardDetail";
 import Settings from "./pages/Settings";
+import UserManagement from "./pages/UserManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,18 +30,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const OnboardingWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { hasCompletedOnboarding, completeOnboarding, updateUserProfile, isAuthenticated } = useAuth();
+  const { hasCompletedOnboarding, completeOnboarding, isAuthenticated, isLoading } = useAuth();
   const { setInitialIncome, setInitialCards, setPeople } = useFinance();
-  const [showOnboarding, setShowOnboarding] = useState(!hasCompletedOnboarding);
 
-  const handleOnboardingComplete = (data: OnboardingData) => {
-    // Save user profile
-    updateUserProfile({
-      firstName: data.firstName,
-      lastName: data.lastName,
-      email: data.email,
-    });
-
+  const handleOnboardingComplete = async (data: OnboardingData) => {
     // Set initial income
     if (data.monthlyIncome > 0) {
       setInitialIncome(data.monthlyIncome);
@@ -55,13 +47,26 @@ const OnboardingWrapper: React.FC<{ children: React.ReactNode }> = ({ children }
     // Set people
     setPeople(data.people);
 
-    // Mark onboarding as complete
-    completeOnboarding();
-    setShowOnboarding(false);
+    // Complete onboarding in the database with name and email
+    const fullName = `${data.firstName} ${data.lastName}`;
+    // Only send email if it's valid (contains @ and .)
+    const emailToSend = data.email.trim() !== '' && data.email.includes('@') && data.email.includes('.') 
+      ? data.email.trim() 
+      : undefined;
+    await completeOnboarding(fullName, emailToSend);
   };
 
+  // Wait for auth to load before deciding
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   // Only show onboarding if authenticated and not completed
-  if (isAuthenticated && showOnboarding) {
+  if (isAuthenticated && !hasCompletedOnboarding) {
     return <OnboardingWizard onComplete={handleOnboardingComplete} />;
   }
 
@@ -118,6 +123,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute>
+              <UserManagement />
             </ProtectedRoute>
           }
         />

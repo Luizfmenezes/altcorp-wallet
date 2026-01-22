@@ -29,7 +29,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
     firstName: '',
     lastName: '',
     email: '',
-    theme: 'light',
+    theme: 'dark',
     monthlyIncome: 0,
     cards: [],
     people: ['Eu'],

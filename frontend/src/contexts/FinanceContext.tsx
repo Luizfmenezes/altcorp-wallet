@@ -105,51 +105,17 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
-  const [people, setPeople] = useState<string[]>(['Eu', 'Ana', 'Outro']);
+  const [people, setPeople] = useState<string[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [lastRecurringCheck, setLastRecurringCheck] = useState<string>(
     localStorage.getItem('lastRecurringCheck') || ''
   );
 
-  const [incomes, setIncomes] = useState<Income[]>([
-    { id: '1', description: 'Salário', amount: 5000, type: 'fixed' },
-    { id: '2', description: 'Freelance', amount: 1500, type: 'extra', month: currentDate.getMonth(), year: currentDate.getFullYear() },
-  ]);
+  const [incomes, setIncomes] = useState<Income[]>([]);
 
-  const [expenses, setExpenses] = useState<Expense[]>([
-    { id: '1', date: '2026-01-03', description: 'Mercado', category: 'Alimentação', amount: 320.00, owner: 'Eu' },
-    { id: '2', date: '2026-01-05', description: 'Uber', category: 'Transporte', amount: 45.50, owner: 'Eu' },
-    { id: '3', date: '2026-01-08', description: 'Farmácia', category: 'Saúde', amount: 89.90, owner: 'Ana' },
-    { id: '4', date: '2026-01-10', description: 'Restaurante', category: 'Alimentação', amount: 156.00, owner: 'Eu' },
-    { id: '5', date: '2026-01-12', description: 'Conta de Luz', category: 'Moradia', amount: 180.00, owner: 'Eu' },
-  ]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
 
-  const [cards, setCards] = useState<Card[]>([
-    {
-      id: '1',
-      name: 'Cartão Nubank',
-      type: 'credit',
-      color: '#8B5CF6',
-      invoiceItems: [
-        { id: '1', date: '2026-01-05', description: 'Supermercado', category: 'Alimentação', amount: 450.00, owner: 'Eu' },
-        { id: '2', date: '2026-01-10', description: 'Netflix', category: 'Streaming', amount: 55.90, owner: 'Eu' },
-        { id: '3', date: '2026-01-15', description: 'Combustível', category: 'Transporte', amount: 200.00, owner: 'Ana' },
-        { id: '4', date: '2026-01-20', description: 'Celular (1/3)', category: 'Compras', amount: 500.00, owner: 'Eu', installmentInfo: { currentInstallment: 1, totalInstallments: 3, originalAmount: 1500 } },
-        { id: '5', date: '2026-02-20', description: 'Celular (2/3)', category: 'Compras', amount: 500.00, owner: 'Eu', installmentInfo: { currentInstallment: 2, totalInstallments: 3, originalAmount: 1500 } },
-        { id: '6', date: '2026-03-20', description: 'Celular (3/3)', category: 'Compras', amount: 500.00, owner: 'Eu', installmentInfo: { currentInstallment: 3, totalInstallments: 3, originalAmount: 1500 } },
-      ],
-    },
-    {
-      id: '2',
-      name: 'Conta Itaú',
-      type: 'bank',
-      color: '#F97316',
-      invoiceItems: [
-        { id: '1', date: '2026-01-01', description: 'Aluguel', category: 'Moradia', amount: 1500.00, owner: 'Eu' },
-        { id: '2', date: '2026-01-05', description: 'Internet', category: 'Serviços', amount: 120.00, owner: 'Eu' },
-      ],
-    },
-  ]);
+  const [cards, setCards] = useState<Card[]>([]);
 
   const addIncome = (income: Omit<Income, 'id'>) => {
     setIncomes(prev => [...prev, { ...income, id: generateId() }]);

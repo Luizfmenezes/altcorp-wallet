@@ -20,26 +20,36 @@ const Login: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    console.log('Login attempt:', { username, password: '***' });
 
-    const success = login(username, password);
-    
-    if (success) {
+    try {
+      const success = await login(username, password);
+      
+      console.log('Login result:', success);
+      
+      if (success) {
+        toast({
+          title: 'Bem-vindo!',
+          description: 'Login realizado com sucesso.',
+        });
+        navigate('/dashboard');
+      } else {
+        toast({
+          title: 'Erro no login',
+          description: 'Usuário ou senha incorretos.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Login error:', error);
       toast({
-        title: 'Bem-vindo!',
-        description: 'Login realizado com sucesso.',
-      });
-      navigate('/dashboard');
-    } else {
-      toast({
-        title: 'Erro no login',
-        description: 'Usuário ou senha incorretos.',
+        title: 'Erro',
+        description: 'Ocorreu um erro. Tente novamente.',
         variant: 'destructive',
       });
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (
@@ -117,9 +127,9 @@ const Login: React.FC = () => {
           </Button>
         </form>
 
-        {/* Hint */}
+        {/* Info */}
         <p className="text-center text-xs md:text-sm text-muted-foreground mt-6">
-          Use <span className="font-medium">admin</span> / <span className="font-medium">admin</span> para entrar
+          Entre em contato com o administrador para criar uma conta
         </p>
       </div>
     </div>

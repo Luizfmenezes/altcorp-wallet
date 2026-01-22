@@ -2,15 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from app.database.session import get_db
-from app.database.models import Expense
+from app.database.models import Expense, User
 from app.schemas.schemas import ExpenseCreate, ExpenseResponse, ExpenseUpdate
+from app.core.dependencies import get_current_user
 
 router = APIRouter()
 
-TEMP_USER_ID = 1
+
 
 @router.get("/", response_model=List[ExpenseResponse])
-def get_expenses(
+def get_expenses(current_user: User = Depends(get_current_user), 
     skip: int = 0,
     limit: int = 1000,
     month: int = None,
@@ -19,7 +20,7 @@ def get_expenses(
     db: Session = Depends(get_db)
 ):
     """Get all expenses for the current user with optional filters"""
-    query = db.query(Expense).filter(Expense.user_id == TEMP_USER_ID)
+    query = db.query(Expense).filter(Expense.user_id == current_user.id)
     
     if category:
         query = query.filter(Expense.category == category)
@@ -46,11 +47,11 @@ def get_expenses(
     return expenses
 
 @router.get("/{expense_id}", response_model=ExpenseResponse)
-def get_expense(expense_id: int, db: Session = Depends(get_db)):
+def get_expense(expense_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Get a specific expense by ID"""
     expense = db.query(Expense).filter(
         Expense.id == expense_id,
-        Expense.user_id == TEMP_USER_ID
+        Expense.user_id == current_user.id
     ).first()
     
     if not expense:
@@ -59,20 +60,20 @@ def get_expense(expense_id: int, db: Session = Depends(get_db)):
     return expense
 
 @router.post("/", response_model=ExpenseResponse, status_code=status.HTTP_201_CREATED)
-def create_expense(expense: ExpenseCreate, db: Session = Depends(get_db)):
+def create_expense(expense: ExpenseCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Create a new expense"""
-    db_expense = Expense(**expense.dict(), user_id=TEMP_USER_ID)
+    db_expense = Expense(**expense.dict(), user_id=current_user.id)
     db.add(db_expense)
     db.commit()
     db.refresh(db_expense)
     return db_expense
 
 @router.put("/{expense_id}", response_model=ExpenseResponse)
-def update_expense(expense_id: int, expense: ExpenseUpdate, db: Session = Depends(get_db)):
+def update_expense(expense_id: int, expense: ExpenseUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Update an expense"""
     db_expense = db.query(Expense).filter(
         Expense.id == expense_id,
-        Expense.user_id == TEMP_USER_ID
+        Expense.user_id == current_user.id
     ).first()
     
     if not db_expense:
@@ -86,11 +87,11 @@ def update_expense(expense_id: int, expense: ExpenseUpdate, db: Session = Depend
     return db_expense
 
 @router.delete("/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_expense(expense_id: int, db: Session = Depends(get_db)):
+def delete_expense(expense_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Delete an expense"""
     expense = db.query(Expense).filter(
         Expense.id == expense_id,
-        Expense.user_id == TEMP_USER_ID
+        Expense.user_id == current_user.id
     ).first()
     
     if not expense:

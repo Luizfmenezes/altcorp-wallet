@@ -92,7 +92,9 @@ const Dashboard: React.FC = () => {
           <div className="flex items-center gap-3">
             {/* Avatar */}
             <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center overflow-hidden border-2 border-white/30">
-              {user?.avatar ? (
+              {user?.profile_photo ? (
+                <img src={user.profile_photo} alt="Foto de perfil" className="w-full h-full object-cover" />
+              ) : user?.avatar ? (
                 <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-lg font-semibold text-white">

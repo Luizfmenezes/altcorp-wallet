@@ -17,13 +17,26 @@ class FrequencyType(str, enum.Enum):
     MONTHLY = "monthly"
     WEEKLY = "weekly"
 
+class UserRole(str, enum.Enum):
+    ADMIN = "admin"
+    USER = "user"
+    TEMP = "temp"
+    
+    def __str__(self):
+        return self.value
+
 class User(Base):
     __tablename__ = "users"
     
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
+    username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=True)
     name = Column(String, nullable=False)
     hashed_password = Column(String, nullable=False)
+    role = Column(Enum(UserRole, values_callable=lambda obj: [e.value for e in obj]), nullable=False, default=UserRole.USER)
+    is_active = Column(Boolean, default=True, nullable=False)
+    onboarding_completed = Column(Boolean, default=False, nullable=False)
+    profile_photo = Column(String, nullable=True)  # Base64 encoded image
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -103,7 +116,7 @@ class Budget(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     category = Column(String, nullable=False)
-    limit = Column(Float, nullable=False)
+    amount_limit = Column(Float, nullable=False)
     month = Column(Integer, nullable=False)
     year = Column(Integer, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

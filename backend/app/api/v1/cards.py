@@ -4,32 +4,36 @@ from typing import List
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from app.database.session import get_db
-from app.database.models import Card, InvoiceItem
+from app.database.models import Card, InvoiceItem, User
 from app.schemas.schemas import (
     CardCreate, CardResponse, 
     InvoiceItemCreate, InvoiceItemResponse, InvoiceItemUpdate
 )
+from app.core.dependencies import get_current_user
 
 router = APIRouter()
-
-TEMP_USER_ID = 1
 
 @router.get("/", response_model=List[CardResponse])
 def get_cards(
     skip: int = 0,
     limit: int = 100,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all cards for the current user"""
-    cards = db.query(Card).filter(Card.user_id == TEMP_USER_ID).offset(skip).limit(limit).all()
+    cards = db.query(Card).filter(Card.user_id == current_user.id).offset(skip).limit(limit).all()
     return cards
 
 @router.get("/{card_id}", response_model=CardResponse)
-def get_card(card_id: int, db: Session = Depends(get_db)):
+def get_card(
+    card_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Get a specific card by ID"""
     card = db.query(Card).filter(
         Card.id == card_id,
-        Card.user_id == TEMP_USER_ID
+        Card.user_id == current_user.id
     ).first()
     
     if not card:
@@ -38,20 +42,28 @@ def get_card(card_id: int, db: Session = Depends(get_db)):
     return card
 
 @router.post("/", response_model=CardResponse, status_code=status.HTTP_201_CREATED)
-def create_card(card: CardCreate, db: Session = Depends(get_db)):
+def create_card(
+    card: CardCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Create a new card"""
-    db_card = Card(**card.dict(), user_id=TEMP_USER_ID)
+    db_card = Card(**card.dict(), user_id=current_user.id)
     db.add(db_card)
     db.commit()
     db.refresh(db_card)
     return db_card
 
 @router.delete("/{card_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_card(card_id: int, db: Session = Depends(get_db)):
+def delete_card(
+    card_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Delete a card"""
     card = db.query(Card).filter(
         Card.id == card_id,
-        Card.user_id == TEMP_USER_ID
+        Card.user_id == current_user.id
     ).first()
     
     if not card:
@@ -69,13 +81,14 @@ def get_invoice_items(
     limit: int = 1000,
     month: int = None,
     year: int = None,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all invoice items for a card"""
     # Verify card exists and belongs to user
     card = db.query(Card).filter(
         Card.id == card_id,
-        Card.user_id == TEMP_USER_ID
+        Card.user_id == current_user.id
     ).first()
     
     if not card:
@@ -107,13 +120,14 @@ def get_invoice_items(
 def create_invoice_item(
     card_id: int,
     item: InvoiceItemCreate,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new invoice item (with optional installments)"""
     # Verify card exists and belongs to user
     card = db.query(Card).filter(
         Card.id == card_id,
-        Card.user_id == TEMP_USER_ID
+        Card.user_id == current_user.id
     ).first()
     
     if not card:
@@ -161,13 +175,14 @@ def update_invoice_item(
     card_id: int,
     item_id: int,
     item: InvoiceItemUpdate,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Update an invoice item"""
     # Verify card exists and belongs to user
     card = db.query(Card).filter(
         Card.id == card_id,
-        Card.user_id == TEMP_USER_ID
+        Card.user_id == current_user.id
     ).first()
     
     if not card:
@@ -189,12 +204,17 @@ def update_invoice_item(
     return db_item
 
 @router.delete("/{card_id}/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_invoice_item(card_id: int, item_id: int, db: Session = Depends(get_db)):
+def delete_invoice_item(
+    card_id: int,
+    item_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Delete an invoice item"""
     # Verify card exists and belongs to user
     card = db.query(Card).filter(
         Card.id == card_id,
-        Card.user_id == TEMP_USER_ID
+        Card.user_id == current_user.id
     ).first()
     
     if not card:

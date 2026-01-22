@@ -17,20 +17,45 @@ class FrequencyType(str, Enum):
     MONTHLY = "monthly"
     WEEKLY = "weekly"
 
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    USER = "user"
+    TEMP = "temp"
+
 # User Schemas
 class UserBase(BaseModel):
-    email: EmailStr
+    username: str
     name: str
 
 class UserCreate(UserBase):
     password: str
+    email: Optional[EmailStr] = None
+    role: UserRole = UserRole.USER
+
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role: Optional[UserRole] = None
+    is_active: Optional[bool] = None
+    onboarding_completed: Optional[bool] = None
+    profile_photo: Optional[str] = None
 
 class UserResponse(UserBase):
     id: int
+    email: Optional[str] = None
+    role: UserRole
+    is_active: bool
+    onboarding_completed: bool
+    profile_photo: Optional[str] = None
     created_at: datetime
     
     class Config:
         from_attributes = True
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
 
 # Income Schemas
 class IncomeBase(BaseModel):
@@ -137,7 +162,7 @@ class InvoiceItemResponse(InvoiceItemBase):
 # Budget Schemas
 class BudgetBase(BaseModel):
     category: str
-    limit: float
+    amount_limit: float
     month: int
     year: int
 

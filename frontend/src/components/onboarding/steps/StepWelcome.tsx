@@ -13,7 +13,7 @@ interface StepWelcomeProps {
 }
 
 export const StepWelcome: React.FC<StepWelcomeProps> = ({ data, updateData, onNext }) => {
-  const isValid = data.firstName.trim() && data.lastName.trim() && data.email.trim();
+  const isValid = data.firstName.trim() && data.lastName.trim();
 
   return (
     <div className="h-full flex flex-col px-6 py-8">
@@ -91,11 +91,11 @@ export const StepWelcome: React.FC<StepWelcomeProps> = ({ data, updateData, onNe
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">Email (opcional)</Label>
             <Input
               id="email"
               type="email"
-              placeholder="joao@email.com"
+              placeholder="joao@email.com (opcional)"
               value={data.email}
               onChange={(e) => updateData({ email: e.target.value })}
               className="input-finance"

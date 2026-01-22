@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Moon, Sun, LogOut, Palette, Users, Plus, Trash2, Camera, Mail, Save } from 'lucide-react';
+import { User, Moon, Sun, LogOut, Palette, Users, Plus, Trash2, Camera, Save, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
@@ -10,9 +10,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFinance } from '@/contexts/FinanceContext';
 import { useToast } from '@/hooks/use-toast';
+import authService from '@/services/authService';
 
 const Settings: React.FC = () => {
-  const { user, logout, updateUserProfile } = useAuth();
+  const { user, logout, updateProfile, updateProfilePhoto } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { people, addPerson, removePerson } = useFinance();
   const navigate = useNavigate();
@@ -20,11 +21,27 @@ const Settings: React.FC = () => {
 
   const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
   const [newPersonName, setNewPersonName] = useState('');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   
-  // Profile edit state - load from user profile
-  const [profileFirstName, setProfileFirstName] = useState(user?.profile?.firstName || '');
-  const [profileLastName, setProfileLastName] = useState(user?.profile?.lastName || '');
-  const [profileEmail, setProfileEmail] = useState(user?.profile?.email || '');
+  // Profile edit state - load from user data (from database)
+  const [profileFirstName, setProfileFirstName] = useState(() => {
+    if (user?.profile?.firstName) return user.profile.firstName;
+    if (user?.name) return user.name.split(' ')[0] || '';
+    return '';
+  });
+  const [profileLastName, setProfileLastName] = useState(() => {
+    if (user?.profile?.lastName) return user.profile.lastName;
+    if (user?.name) {
+      const nameParts = user.name.split(' ');
+      return nameParts.slice(1).join(' ') || '';
+    }
+    return '';
+  });
+  const [profileEmail, setProfileEmail] = useState(() => {
+    if (user?.profile?.email) return user.profile.email;
+    return user?.apiUser?.email || '';
+  });
 
   const handleLogout = () => {
     logout();
@@ -63,16 +80,86 @@ const Settings: React.FC = () => {
     });
   };
 
-  const handleSaveProfile = () => {
-    updateUserProfile({
-      firstName: profileFirstName,
-      lastName: profileLastName,
-      email: profileEmail,
-    });
-    toast({
-      title: 'Perfil atualizado',
-      description: 'Suas alterações foram salvas.',
-    });
+  const handleSaveProfile = async () => {
+    try {
+      await updateProfile(profileFirstName, profileLastName, profileEmail);
+      toast({
+        title: 'Perfil atualizado',
+        description: 'Suas alterações foram salvas no banco.',
+      });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: 'Erro',
+        description: 'Falha ao atualizar perfil.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handlePhotoClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Erro',
+        description: 'Por favor, selecione uma imagem.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: 'Erro',
+        description: 'A imagem deve ter no máximo 2MB.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    try {
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const base64 = reader.result as string;
+          await authService.updateProfilePhoto(base64);
+          // Update local state without page reload
+          updateProfilePhoto(base64);
+          toast({
+            title: 'Sucesso',
+            description: 'Foto de perfil atualizada!',
+          });
+        } catch (err) {
+          console.error('Error uploading photo:', err);
+          toast({
+            title: 'Erro',
+            description: 'Falha ao atualizar foto de perfil.',
+            variant: 'destructive',
+          });
+        } finally {
+          setIsUploadingPhoto(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Error reading file:', err);
+      toast({
+        title: 'Erro',
+        description: 'Falha ao ler arquivo.',
+        variant: 'destructive',
+      });
+      setIsUploadingPhoto(false);
+    }
   };
 
   return (
@@ -98,12 +185,37 @@ const Settings: React.FC = () => {
           {/* Avatar */}
           <div className="flex justify-center mb-6">
             <div className="relative">
-              <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-primary/10 flex items-center justify-center border-4 border-primary/20">
-                <User className="w-12 h-12 md:w-14 md:h-14 text-primary" />
+              <div 
+                role="button"
+                tabIndex={0}
+                className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-primary/10 flex items-center justify-center border-4 border-primary/20 overflow-hidden cursor-pointer"
+                onClick={handlePhotoClick}
+                onKeyDown={(e) => e.key === 'Enter' && handlePhotoClick()}
+              >
+                {user?.profile_photo ? (
+                  <img 
+                    src={user.profile_photo} 
+                    alt="Foto de perfil" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="w-12 h-12 md:w-14 md:h-14 text-primary" />
+                )}
               </div>
-              <button className="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors">
+              <button 
+                onClick={handlePhotoClick}
+                disabled={isUploadingPhoto}
+                className="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
                 <Camera className="w-4 h-4 text-primary-foreground" />
               </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoChange}
+                className="hidden"
+              />
             </div>
           </div>
           
@@ -132,16 +244,13 @@ const Settings: React.FC = () => {
             
             <div>
               <label className="text-sm text-muted-foreground mb-1 block">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  type="email"
-                  value={profileEmail}
-                  onChange={(e) => setProfileEmail(e.target.value)}
-                  className="input-finance pl-10"
-                  placeholder="seu@email.com"
-                />
-              </div>
+              <Input
+                type="email"
+                value={profileEmail}
+                onChange={(e) => setProfileEmail(e.target.value)}
+                className="input-finance text-sm"
+                placeholder="seu@email.com"
+              />
             </div>
             
             <Button onClick={handleSaveProfile} className="w-full h-11 rounded-xl">
@@ -150,6 +259,31 @@ const Settings: React.FC = () => {
             </Button>
           </div>
         </section>
+
+        {/* Admin Section - User Management */}
+        {authService.isAdmin() && (
+          <section className="card-finance animate-fade-in" style={{ animationDelay: '0.05s' }}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-red-500" />
+                <h2 className="font-semibold text-foreground">Administração</h2>
+              </div>
+            </div>
+            
+            <p className="text-xs text-muted-foreground mb-3">
+              Área exclusiva para administradores do sistema.
+            </p>
+            
+            <Button 
+              onClick={() => navigate('/users')} 
+              variant="outline" 
+              className="w-full h-11 rounded-xl"
+            >
+              <Users className="w-4 h-4 mr-2" />
+              Gerenciar Usuários e Permissões
+            </Button>
+          </section>
+        )}
 
         {/* People Management Section */}
         <section className="card-finance animate-fade-in" style={{ animationDelay: '0.05s' }}>

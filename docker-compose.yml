@@ -31,14 +31,14 @@ services:
     container_name: altcorp-wallet-backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-walletuser}:${POSTGRES_PASSWORD:-walletpass123}@database:5432/${POSTGRES_DB:-altcorp_wallet}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
       API_HOST: 0.0.0.0
       API_PORT: 8000
-      DEBUG: "True"
-      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production-min-32-chars}
+      DEBUG: ${DEBUG:-False}
+      SECRET_KEY: ${SECRET_KEY}
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
-      ALLOWED_ORIGINS: http://localhost,http://localhost:80,http://localhost:3000
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
     ports:
       - "8000:8000"
     networks:

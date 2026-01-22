@@ -1,32 +1,53 @@
 # AltCorp Wallet 💰
 
-Sistema profissional de gerenciamento financeiro pessoal desenvolvido com arquitetura moderna em containers Docker.
+Sistema profissional de gerenciamento financeiro pessoal com autenticação JWT e gestão de usuários.
 
 ## 🏗️ Arquitetura
 
-O projeto é dividido em três serviços principais:
-
-- **Frontend**: React + TypeScript + Vite + TailwindCSS + shadcn/ui (Nginx)
-- **Backend**: Python + FastAPI + SQLAlchemy
+- **Frontend**: React + TypeScript + Vite + TailwindCSS + shadcn/ui
+- **Backend**: Python + FastAPI + SQLAlchemy + JWT Auth
 - **Database**: PostgreSQL 16
 
-Todos os serviços rodam em containers Docker orquestrados via Docker Compose.
+Arquitetura em containers Docker com orquestração via Docker Compose.
+
+## ✨ Funcionalidades
+
+- � Autenticação JWT com roles (Admin/User/Temp)
+- 👥 Gestão completa de usuários
+- 💰 Controle de receitas (fixas e extras)
+- 💸 Registro de despesas
+- 💳 Gerenciamento de cartões
+- 📊 Orçamentos mensais
+- 📈 Análises e gráficos
+- 🌓 Tema claro/escuro
+- 📱 Totalmente responsivo
 
 ## 📋 Pré-requisitos
 
-- Docker Desktop (Windows/Mac) ou Docker Engine + Docker Compose (Linux)
+- Docker Engine 20.10+
+- Docker Compose 2.0+
 - Git
 
-## 🚀 Instalação e Execução
+## 🚀 Instalação e Deployment
 
-### 1. Clone o repositório
+Ver guia completo em [DEPLOYMENT.md](./DEPLOYMENT.md)
+
+### Quick Start (Produção)
 
 ```bash
+# 1. Clone o repositório
 git clone <repository-url>
 cd altcorp-wallet
-```
 
-### 2. Configure as variáveis de ambiente
+# 2. Configure variáveis de ambiente
+cp .env.example .env
+# Edite .env com suas configurações
+
+# 3. Inicie os containers
+docker-compose up -d --build
+
+# 4. Acesse http://localhost
+```
 
 ```bash
 # Copie o arquivo de exemplo

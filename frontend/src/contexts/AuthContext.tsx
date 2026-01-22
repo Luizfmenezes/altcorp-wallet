@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import authService, { type User as ApiUser } from '@/services/authService';
 
 interface UserProfile {
   firstName: string;
@@ -11,69 +12,172 @@ interface User {
   name: string;
   avatar?: string;
   profile?: UserProfile;
+  role?: 'admin' | 'user' | 'temp';
+  profile_photo?: string;
+  apiUser?: ApiUser;
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string) => boolean;
+  login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
+  register: (name: string, email: string, password: string) => Promise<boolean>;
   isAuthenticated: boolean;
+  isLoading: boolean;
   hasCompletedOnboarding: boolean;
-  completeOnboarding: () => void;
+  completeOnboarding: (name: string, email?: string) => Promise<void>;
   updateUserProfile: (profile: UserProfile) => void;
+  updateProfile: (firstName: string, lastName: string, email?: string) => Promise<void>;
+  updateProfilePhoto: (photo: string) => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper to get onboarding key for a specific user
+const getOnboardingKey = (username: string) => `altcorp_onboarding_${username}`;
+const getProfileKey = (username: string) => `altcorp_profile_${username}`;
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(() => {
-    return localStorage.getItem('altcorp_onboarding_complete') === 'true';
-  });
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const login = (username: string, password: string): boolean => {
-    if (username === 'admin' && password === 'admin') {
-      const savedProfile = localStorage.getItem('altcorp_user_profile');
-      const profile = savedProfile ? JSON.parse(savedProfile) : undefined;
+  // Check if user is already logged in on mount
+  useEffect(() => {
+    const apiUser = authService.getUser();
+    if (apiUser) {
+      setUser({
+        username: apiUser.username,
+        name: apiUser.name,
+        role: apiUser.role,
+        profile_photo: apiUser.profile_photo,
+        apiUser,
+      });
+      // Use the onboarding status from the API user (from database)
+      setHasCompletedOnboarding(apiUser.onboarding_completed);
+    }
+    setIsLoading(false);
+  }, []);
+
+  const login = async (username: string, password: string): Promise<boolean> => {
+    try {
+      const apiUser = await authService.login({ username, password });
       
       setUser({
-        username: 'admin',
-        name: profile ? `${profile.firstName} ${profile.lastName}` : 'Administrador',
-        avatar: undefined,
-        profile,
+        username: apiUser.username,
+        name: apiUser.name,
+        role: apiUser.role,
+        profile_photo: apiUser.profile_photo,
+        apiUser,
       });
+      
+      // Use the onboarding status from the API user (from database)
+      setHasCompletedOnboarding(apiUser.onboarding_completed);
+      
       return true;
+    } catch (error) {
+      console.error('Login failed:', error);
+      return false;
     }
-    return false;
+  };
+
+  const register = async (name: string, username: string, password: string): Promise<boolean> => {
+    try {
+      await authService.register({ name, username, password });
+      // Auto login after registration
+      return await login(username, password);
+    } catch (error) {
+      console.error('Registration failed:', error);
+      return false;
+    }
   };
 
   const logout = () => {
+    authService.logout();
     setUser(null);
+    setHasCompletedOnboarding(false);
   };
 
-  const completeOnboarding = () => {
-    setHasCompletedOnboarding(true);
-    localStorage.setItem('altcorp_onboarding_complete', 'true');
+  const completeOnboarding = async (name: string, email?: string) => {
+    try {
+      const updatedUser = await authService.completeOnboarding(name, email);
+      setUser(prev => prev ? {
+        ...prev,
+        name: updatedUser.name,
+        apiUser: updatedUser,
+      } : null);
+      setHasCompletedOnboarding(true);
+    } catch (error) {
+      console.error('Failed to complete onboarding:', error);
+    }
   };
 
   const updateUserProfile = (profile: UserProfile) => {
-    localStorage.setItem('altcorp_user_profile', JSON.stringify(profile));
-    setUser(prev => prev ? {
-      ...prev,
-      name: `${profile.firstName} ${profile.lastName}`,
-      profile,
-    } : null);
+    if (user) {
+      localStorage.setItem(getProfileKey(user.username), JSON.stringify(profile));
+      setUser(prev => prev ? {
+        ...prev,
+        name: `${profile.firstName} ${profile.lastName}`,
+        profile,
+      } : null);
+    }
+  };
+
+  const updateProfilePhoto = (photo: string) => {
+    if (user) {
+      setUser(prev => prev ? {
+        ...prev,
+        profile_photo: photo,
+      } : null);
+    }
+  };
+
+  const updateProfile = async (firstName: string, lastName: string, email?: string) => {
+    try {
+      const fullName = `${firstName} ${lastName}`.trim();
+      const updatedUser = await authService.updateProfile(fullName, email);
+      setUser(prev => prev ? {
+        ...prev,
+        name: updatedUser.name,
+        apiUser: updatedUser,
+      } : null);
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+    }
+  };
+
+  const refreshUser = async () => {
+    try {
+      const apiUser = await authService.getCurrentUser();
+      localStorage.setItem('user', JSON.stringify(apiUser));
+      setUser({
+        username: apiUser.username,
+        name: apiUser.name,
+        role: apiUser.role,
+        profile_photo: apiUser.profile_photo,
+        apiUser,
+      });
+      setHasCompletedOnboarding(apiUser.onboarding_completed);
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
+    }
   };
 
   return (
     <AuthContext.Provider value={{ 
       user, 
-      login, 
+      login,
+      register,
       logout, 
       isAuthenticated: !!user,
+      isLoading,
       hasCompletedOnboarding,
       completeOnboarding,
       updateUserProfile,
+      updateProfile,
+      updateProfilePhoto,
+      refreshUser,
     }}>
       {children}
     </AuthContext.Provider>
