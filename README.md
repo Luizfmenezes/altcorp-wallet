@@ -30,7 +30,8 @@ Arquitetura em containers Docker com orquestração via Docker Compose.
 
 ## 🚀 Instalação e Deployment
 
-Ver guia completo em [DEPLOYMENT.md](./DEPLOYMENT.md)
+Ver guia completo em [DEPLOYMENT.md](./DEPLOYMENT.md)  
+Para Nginx Proxy Manager, ver [NGINX_PROXY_MANAGER.md](./NGINX_PROXY_MANAGER.md)
 
 ### Quick Start (Produção)
 
@@ -46,8 +47,21 @@ cp .env.example .env
 # 3. Inicie os containers
 docker-compose up -d --build
 
-# 4. Acesse http://localhost
+# 4. Acesse http://SEU_IP:8080
+# Exemplo: http://192.168.15.5:8080
 ```
+
+### Com Nginx Proxy Manager (HTTPS)
+
+Se você usa Nginx Proxy Manager para gerenciar HTTPS:
+
+1. **Configure o Proxy Host** no Nginx Proxy Manager apontando para `http://SEU_IP:8080`
+2. **Adicione Custom Locations** para `/api`, `/docs`, `/openapi.json` apontando para porta `8000`
+3. **Configure SSL** com Let's Encrypt
+4. **Atualize CORS** no `.env`: `ALLOWED_ORIGINS=https://seu-dominio.com`
+
+Ver guia completo em [NGINX_PROXY_MANAGER.md](./NGINX_PROXY_MANAGER.md)
+
 
 ```bash
 # Copie o arquivo de exemplo

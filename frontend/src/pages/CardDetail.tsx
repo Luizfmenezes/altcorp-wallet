@@ -30,7 +30,7 @@ const YEARS = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 
 const CardDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { cards, people, addInvoiceItem, updateInvoiceItem, removeInvoiceItem, importCSV, addPerson } = useFinance();
+  const { cards, people, addInvoiceItem, updateInvoiceItem, removeInvoiceItem, importCSV, addPerson, updateCard, removeCard } = useFinance();
   const { toast } = useToast();
 
   const card = cards.find((c) => c.id === id);
@@ -42,8 +42,16 @@ const CardDetail: React.FC = () => {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
+  const [isEditCardDialogOpen, setIsEditCardDialogOpen] = useState(false);
+  const [isDeleteCardDialogOpen, setIsDeleteCardDialogOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
   const [newPersonName, setNewPersonName] = useState('');
   const [editingItem, setEditingItem] = useState<InvoiceItem | null>(null);
+  
+  const [editCardData, setEditCardData] = useState({
+    name: card?.name || '',
+    color: card?.color || '#8b5cf6',
+  });
   
   const [newItem, setNewItem] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -284,6 +292,49 @@ const CardDetail: React.FC = () => {
     }
   };
 
+  const handleEditCard = () => {
+    if (!editCardData.name.trim()) {
+      toast({
+        title: 'Erro',
+        description: 'O nome do cartão não pode estar vazio.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    updateCard(card.id, {
+      name: editCardData.name,
+      color: editCardData.color,
+    });
+
+    toast({
+      title: 'Sucesso',
+      description: 'Cartão atualizado com sucesso!',
+    });
+
+    setIsEditCardDialogOpen(false);
+  };
+
+  const handleDeleteCard = () => {
+    if (deleteConfirmName.trim().toLowerCase() !== card.name.toLowerCase()) {
+      toast({
+        title: 'Erro',
+        description: 'O nome do cartão não corresponde. Digite exatamente o nome para confirmar.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    removeCard(card.id);
+    
+    toast({
+      title: 'Removido',
+      description: 'Cartão removido com sucesso.',
+    });
+
+    navigate('/wallet');
+  };
+
   const totalAmount = filteredItems.reduce((sum, item) => sum + item.amount, 0);
 
   return (
@@ -306,7 +357,30 @@ const CardDetail: React.FC = () => {
             <div className="flex-1">
               <h1 className="text-xl md:text-2xl font-bold">{card.name}</h1>
             </div>
-            {getCardIcon(card.type)}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setEditCardData({ name: card.name, color: card.color });
+                  setIsEditCardDialogOpen(true);
+                }}
+                className="text-white hover:bg-white/20"
+                title="Editar cartão"
+              >
+                <Pencil className="w-5 h-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsDeleteCardDialogOpen(true)}
+                className="text-white hover:bg-white/20 hover:bg-red-500/30"
+                title="Deletar cartão"
+              >
+                <Trash2 className="w-5 h-5" />
+              </Button>
+              {getCardIcon(card.type)}
+            </div>
           </div>
           <div className="bg-white/20 rounded-2xl p-4 md:max-w-md">
             <p className="text-white/80 text-sm">Total da Fatura - {getMonthName(selectedMonth)}</p>
@@ -806,6 +880,115 @@ const CardDetail: React.FC = () => {
             </div>
           )}
         </section>
+
+        {/* Edit Card Dialog */}
+        <Dialog open={isEditCardDialogOpen} onOpenChange={setIsEditCardDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Editar Cartão</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="card-name">Nome do Cartão</Label>
+                <Input
+                  id="card-name"
+                  placeholder="Nome do cartão"
+                  value={editCardData.name}
+                  onChange={(e) => setEditCardData({ ...editCardData, name: e.target.value })}
+                  className="input-finance"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="card-color">Cor do Cartão</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="card-color"
+                    type="color"
+                    value={editCardData.color}
+                    onChange={(e) => setEditCardData({ ...editCardData, color: e.target.value })}
+                    className="h-11 w-20"
+                  />
+                  <Input
+                    type="text"
+                    value={editCardData.color}
+                    onChange={(e) => setEditCardData({ ...editCardData, color: e.target.value })}
+                    className="flex-1 input-finance"
+                    placeholder="#8b5cf6"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditCardDialogOpen(false)}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button onClick={handleEditCard} className="flex-1">
+                  Salvar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Card Dialog */}
+        <Dialog open={isDeleteCardDialogOpen} onOpenChange={setIsDeleteCardDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-destructive">Deletar Cartão</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                <p className="text-sm text-muted-foreground mb-3">
+                  ⚠️ Esta ação é irreversível! Todos os itens da fatura deste cartão serão perdidos.
+                </p>
+                <p className="text-sm font-medium mb-2">
+                  Para confirmar, digite o nome do cartão:
+                </p>
+                <p className="text-lg font-bold text-center py-2 px-4 bg-background rounded-lg">
+                  {card.name}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirm-name">Confirme o nome do cartão</Label>
+                <Input
+                  id="confirm-name"
+                  placeholder="Digite o nome do cartão"
+                  value={deleteConfirmName}
+                  onChange={(e) => setDeleteConfirmName(e.target.value)}
+                  className="input-finance"
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsDeleteCardDialogOpen(false);
+                    setDeleteConfirmName('');
+                  }}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleDeleteCard} 
+                  variant="destructive"
+                  className="flex-1"
+                  disabled={deleteConfirmName.trim().toLowerCase() !== card.name.toLowerCase()}
+                >
+                  Deletar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

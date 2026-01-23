@@ -68,6 +68,7 @@ interface FinanceContextType {
   updateExpense: (id: string, updates: Partial<Omit<Expense, 'id'>>) => void;
   removeExpense: (id: string) => void;
   addCard: (card: Omit<Card, 'id' | 'invoiceItems'>) => void;
+  updateCard: (id: string, updates: Partial<Omit<Card, 'id' | 'invoiceItems'>>) => void;
   removeCard: (id: string) => void;
   addInvoiceItem: (cardId: string, item: Omit<InvoiceItem, 'id'>, installments?: number) => void;
   updateInvoiceItem: (cardId: string, itemId: string, updates: Partial<Omit<InvoiceItem, 'id'>>) => void;
@@ -144,6 +145,12 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const addCard = (card: Omit<Card, 'id' | 'invoiceItems'>) => {
     setCards(prev => [...prev, { ...card, id: generateId(), invoiceItems: [] }]);
+  };
+
+  const updateCard = (id: string, updates: Partial<Omit<Card, 'id' | 'invoiceItems'>>) => {
+    setCards(prev => prev.map(card => 
+      card.id === id ? { ...card, ...updates } : card
+    ));
   };
 
   const removeCard = (id: string) => {
@@ -540,6 +547,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       updateExpense,
       removeExpense,
       addCard,
+      updateCard,
       removeCard,
       addInvoiceItem,
       updateInvoiceItem,
