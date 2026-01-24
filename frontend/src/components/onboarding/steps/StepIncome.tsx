@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, DollarSign } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { OnboardingData } from '../OnboardingWizard';
 
 interface StepIncomeProps {
@@ -14,27 +13,34 @@ interface StepIncomeProps {
 }
 
 export const StepIncome: React.FC<StepIncomeProps> = ({ data, updateData, onNext, onPrev }) => {
-  const [inputValue, setInputValue] = useState(
-    data.monthlyIncome ? data.monthlyIncome.toLocaleString('pt-BR') : ''
-  );
+  
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Remove tudo que não é número
+    let value = e.target.value.replace(/\D/g, '');
+    const amount = parseFloat(value) / 100;
+    
+    if (isNaN(amount)) {
+      updateData({ income: '' });
+      return;
+    }
 
-  const handleIncomeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '');
-    const numValue = parseInt(value) || 0;
-    setInputValue(numValue.toLocaleString('pt-BR'));
-    updateData({ monthlyIncome: numValue });
+    // Formata para BRL (R$ 1.000,00)
+    const formatted = amount.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+
+    // ATENÇÃO: Salvamos em 'income', removendo qualquer referência a 'monthlyIncome'
+    updateData({ income: formatted });
   };
 
-  const isValid = data.monthlyIncome > 0;
-
   return (
-    <div className="h-full flex flex-col px-6 py-8">
-      {/* Back button */}
+    <div className="h-full flex flex-col px-6 py-4 md:py-8">
       <motion.button
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         onClick={onPrev}
-        className="flex items-center gap-1 text-muted-foreground mb-8 -ml-1"
+        className="flex items-center gap-1 text-muted-foreground mb-4 md:mb-8 -ml-1"
       >
         <ChevronLeft className="w-5 h-5" />
         <span>Voltar</span>
@@ -44,79 +50,44 @@ export const StepIncome: React.FC<StepIncomeProps> = ({ data, updateData, onNext
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="flex-1 flex flex-col"
+        className="flex-1"
       >
-        {/* Icon */}
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: 'spring', delay: 0.3 }}
-          className="w-16 h-16 rounded-2xl bg-success/10 flex items-center justify-center mb-6"
+          className="w-16 h-16 rounded-2xl bg-green-500/10 flex items-center justify-center mb-6"
         >
-          <DollarSign className="w-8 h-8 text-success" />
+          <DollarSign className="w-8 h-8 text-green-600" />
         </motion.div>
 
-        {/* Title */}
-        <h1 className="text-3xl font-bold text-foreground mb-2">Renda Inicial</h1>
-        <p className="text-muted-foreground mb-10">
-          Qual é sua renda mensal média?
+        <h1 className="text-3xl font-bold mb-2">Renda Mensal</h1>
+        <p className="text-muted-foreground mb-8">
+          Qual é a sua renda mensal média?
         </p>
 
-        {/* Income input */}
-        <div className="space-y-3">
-          <Label htmlFor="income" className="text-base">Valor em Reais</Label>
-          <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-lg font-medium">
-              R$
-            </span>
-            <Input
-              id="income"
-              type="text"
-              inputMode="numeric"
-              placeholder="5.000"
-              value={inputValue}
-              onChange={handleIncomeChange}
-              className="h-16 pl-12 text-2xl font-semibold rounded-2xl bg-secondary border-0 focus:ring-2 focus:ring-primary/50"
-            />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Este valor será usado como sua renda fixa mensal.
-          </p>
+        <div className="space-y-4">
+          <label className="text-sm font-medium mb-2 block">
+            Valor Mensal
+          </label>
+          <Input
+            type="text"
+            placeholder="R$ 0,00"
+            value={data.income || ''} // Usa data.income
+            onChange={handleAmountChange}
+            className="text-lg h-12"
+          />
         </div>
 
-        {/* Quick select */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="grid grid-cols-3 gap-2 mt-6"
-        >
-          {[3000, 5000, 8000, 10000, 15000, 20000].map((value) => (
-            <Button
-              key={value}
-              variant={data.monthlyIncome === value ? 'default' : 'outline'}
-              onClick={() => {
-                setInputValue(value.toLocaleString('pt-BR'));
-                updateData({ monthlyIncome: value });
-              }}
-              className="h-12 rounded-xl text-sm font-medium"
-            >
-              {value.toLocaleString('pt-BR')}
-            </Button>
-          ))}
-        </motion.div>
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Button */}
-        <Button
-          onClick={onNext}
-          disabled={!isValid}
-          className="w-full h-14 text-lg font-semibold rounded-2xl"
-        >
-          Continuar
-        </Button>
+        <div className="mt-8">
+          <Button 
+            onClick={onNext} 
+            className="w-full h-12 text-lg rounded-xl"
+            disabled={!data.income || data.income === 'R$ 0,00'}
+          >
+            Continuar
+          </Button>
+        </div>
       </motion.div>
     </div>
   );

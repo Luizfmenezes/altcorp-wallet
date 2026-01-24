@@ -16,9 +16,12 @@ export const StepPeople: React.FC<StepPeopleProps> = ({ data, updateData, onNext
   const [newPerson, setNewPerson] = useState('');
 
   const addPerson = () => {
-    if (newPerson.trim() && !data.people.includes(newPerson.trim())) {
+    // 🛡️ Garante que é string
+    const safeName = (newPerson || '').toString();
+    
+    if (safeName.trim() && !data.people.includes(safeName.trim())) {
       updateData({
-        people: [...data.people, newPerson.trim()],
+        people: [...data.people, safeName.trim()],
       });
       setNewPerson('');
     }

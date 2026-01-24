@@ -3,7 +3,7 @@ from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 
-# Enums
+# === 1. ENUMS ===
 class IncomeType(str, Enum):
     FIXED = "fixed"
     EXTRA = "extra"
@@ -22,7 +22,7 @@ class UserRole(str, Enum):
     USER = "user"
     TEMP = "temp"
 
-# User Schemas
+# === 2. USER SCHEMAS ===
 class UserBase(BaseModel):
     username: str
     name: str
@@ -49,7 +49,6 @@ class UserResponse(UserBase):
     onboarding_completed: bool
     profile_photo: Optional[str] = None
     created_at: datetime
-    
     class Config:
         from_attributes = True
 
@@ -57,7 +56,7 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
-# Income Schemas
+# === 3. INCOME SCHEMAS ===
 class IncomeBase(BaseModel):
     description: str
     amount: float
@@ -72,11 +71,10 @@ class IncomeResponse(IncomeBase):
     id: int
     user_id: int
     created_at: datetime
-    
     class Config:
         from_attributes = True
 
-# Expense Schemas
+# === 4. EXPENSE SCHEMAS ===
 class ExpenseBase(BaseModel):
     date: str
     description: str
@@ -102,28 +100,10 @@ class ExpenseResponse(ExpenseBase):
     id: int
     user_id: int
     created_at: datetime
-    
     class Config:
         from_attributes = True
 
-# Card Schemas
-class CardBase(BaseModel):
-    name: str
-    type: CardType
-    color: str
-
-class CardCreate(CardBase):
-    pass
-
-class CardResponse(CardBase):
-    id: int
-    user_id: int
-    created_at: datetime
-    
-    class Config:
-        from_attributes = True
-
-# Invoice Item Schemas
+# === 5. INVOICE ITEM SCHEMAS (IMPORTANTE: VEM ANTES DE CARD) ===
 class InstallmentInfo(BaseModel):
     current_installment: int
     total_installments: int
@@ -155,11 +135,33 @@ class InvoiceItemResponse(InvoiceItemBase):
     id: int
     card_id: int
     created_at: datetime
-    
     class Config:
         from_attributes = True
 
-# Budget Schemas
+# === 6. CARD SCHEMAS (AGORA PODE USAR InvoiceItemResponse) ===
+class CardBase(BaseModel):
+    name: str
+    type: CardType
+    color: str
+
+class CardCreate(CardBase):
+    pass
+
+class Card(CardBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    # AQUI: Lista de itens agora funciona porque InvoiceItemResponse já foi lido acima
+    invoice_items: List[InvoiceItemResponse] = [] 
+
+    class Config:
+        from_attributes = True
+
+class CardResponse(Card):
+    pass
+
+# === 7. BUDGET SCHEMAS ===
 class BudgetBase(BaseModel):
     category: str
     amount_limit: float
@@ -173,11 +175,10 @@ class BudgetResponse(BudgetBase):
     id: int
     user_id: int
     created_at: datetime
-    
     class Config:
         from_attributes = True
 
-# Token Schemas
+# === 8. TOKEN SCHEMAS ===
 class Token(BaseModel):
     access_token: str
     token_type: str

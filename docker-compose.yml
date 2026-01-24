@@ -44,7 +44,7 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips '*'
 
   # Frontend (React + Nginx)
   frontend:
@@ -52,7 +52,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # Empty = uses relative path /api/v1 (works with Nginx Proxy Manager)
         VITE_API_URL: ""
     container_name: altcorp-wallet-frontend
     restart: unless-stopped
