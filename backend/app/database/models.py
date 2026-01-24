@@ -5,25 +5,31 @@ from app.database.session import Base
 import enum
 
 class IncomeType(str, enum.Enum):
-    FIXED = "fixed"
-    EXTRA = "extra"
+    fixed = "fixed"
+    extra = "extra"
 
 class CardType(str, enum.Enum):
-    CREDIT = "credit"
-    DEBIT = "debit"
-    BANK = "bank"
+    credit = "credit"
+    debit = "debit"
+    bank = "bank"
 
 class FrequencyType(str, enum.Enum):
-    MONTHLY = "monthly"
-    WEEKLY = "weekly"
+    monthly = "monthly"
+    weekly = "weekly"
 
 class UserRole(str, enum.Enum):
-    ADMIN = "admin"
-    USER = "user"
-    TEMP = "temp"
+    admin = "admin"
+    user = "user"
+    temp = "temp"
     
     def __str__(self):
         return self.value
+
+# SQLAlchemy Enum definitions that match PostgreSQL enum names
+IncomeTypeEnum = Enum(IncomeType, name='income_type', values_callable=lambda obj: [e.value for e in obj])
+CardTypeEnum = Enum(CardType, name='card_type', values_callable=lambda obj: [e.value for e in obj])
+FrequencyTypeEnum = Enum(FrequencyType, name='frequency_type', values_callable=lambda obj: [e.value for e in obj])
+UserRoleEnum = Enum(UserRole, name='user_role', values_callable=lambda obj: [e.value for e in obj])
 
 class User(Base):
     __tablename__ = "users"
@@ -33,7 +39,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=True)
     name = Column(String, nullable=False)
     hashed_password = Column(String, nullable=False)
-    role = Column(Enum(UserRole, values_callable=lambda obj: [e.value for e in obj]), nullable=False, default=UserRole.USER)
+    role = Column(UserRoleEnum, nullable=False, default=UserRole.user)
     is_active = Column(Boolean, default=True, nullable=False)
     onboarding_completed = Column(Boolean, default=False, nullable=False)
     profile_photo = Column(String, nullable=True)  # Base64 encoded image
@@ -53,7 +59,7 @@ class Income(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     description = Column(String, nullable=False)
     amount = Column(Float, nullable=False)
-    type = Column(Enum(IncomeType), nullable=False)
+    type = Column(IncomeTypeEnum, nullable=False)
     month = Column(Integer, nullable=True)
     year = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -72,7 +78,7 @@ class Expense(Base):
     amount = Column(Float, nullable=False)
     owner = Column(String, nullable=False)
     is_recurring = Column(Boolean, default=False)
-    frequency = Column(Enum(FrequencyType), nullable=True)
+    frequency = Column(FrequencyTypeEnum, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
@@ -84,7 +90,7 @@ class Card(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String, nullable=False)
-    type = Column(Enum(CardType), nullable=False)
+    type = Column(CardTypeEnum, nullable=False)
     color = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
@@ -103,7 +109,7 @@ class InvoiceItem(Base):
     amount = Column(Float, nullable=False)
     owner = Column(String, nullable=False)
     is_recurring = Column(Boolean, default=False)
-    frequency = Column(Enum(FrequencyType), nullable=True)
+    frequency = Column(FrequencyTypeEnum, nullable=True)
     installment_info = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     

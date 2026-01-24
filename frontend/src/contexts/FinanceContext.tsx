@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { financeService } from '../services/financeService';
 
 export interface Income {
   id: string;
@@ -62,22 +63,22 @@ interface FinanceContextType {
   selectedYear: number;
   setSelectedMonth: (month: number) => void;
   setSelectedYear: (year: number) => void;
-  addIncome: (income: Omit<Income, 'id'>) => void;
-  removeIncome: (id: string) => void;
-  addExpense: (expense: Omit<Expense, 'id'>) => void;
-  updateExpense: (id: string, updates: Partial<Omit<Expense, 'id'>>) => void;
-  removeExpense: (id: string) => void;
-  addCard: (card: Omit<Card, 'id' | 'invoiceItems'>) => void;
-  removeCard: (id: string) => void;
-  addInvoiceItem: (cardId: string, item: Omit<InvoiceItem, 'id'>, installments?: number) => void;
-  updateInvoiceItem: (cardId: string, itemId: string, updates: Partial<Omit<InvoiceItem, 'id'>>) => void;
-  removeInvoiceItem: (cardId: string, itemId: string) => void;
-  importCSV: (cardId: string, items: Omit<InvoiceItem, 'id'>[]) => void;
+  addIncome: (income: Omit<Income, 'id'>) => Promise<void>;
+  removeIncome: (id: string) => Promise<void>;
+  addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
+  updateExpense: (id: string, updates: Partial<Omit<Expense, 'id'>>) => Promise<void>;
+  removeExpense: (id: string) => Promise<void>;
+  addCard: (card: Omit<Card, 'id' | 'invoiceItems'>) => Promise<void>;
+  removeCard: (id: string) => Promise<void>;
+  addInvoiceItem: (cardId: string, item: Omit<InvoiceItem, 'id'>, installments?: number) => Promise<void>;
+  updateInvoiceItem: (cardId: string, itemId: string, updates: Partial<Omit<InvoiceItem, 'id'>>) => Promise<void>;
+  removeInvoiceItem: (cardId: string, itemId: string) => Promise<void>;
+  importCSV: (cardId: string, items: Omit<InvoiceItem, 'id'>[]) => Promise<void>;
   addPerson: (name: string) => void;
   removePerson: (name: string) => void;
   setPeople: (people: string[]) => void;
-  setInitialIncome: (amount: number) => void;
-  setInitialCards: (cards: Array<{ name: string; limit: number }>) => void;
+  setInitialIncome: (amount: number) => Promise<void>;
+  setInitialCards: (cards: Array<{ name: string; limit: number }>) => Promise<void>;
   setBudget: (category: string, limit: number) => void;
   removeBudget: (category: string) => void;
   getBudgetStatus: (category: string) => { spent: number; limit: number; percentage: number };
@@ -88,6 +89,8 @@ interface FinanceContextType {
   getBalance: () => number;
   getPreviousMonthExpenses: () => number;
   getExpensesByCategory: () => { category: string; amount: number }[];
+  loadFinanceData: () => Promise<void>;
+  clearFinanceData: () => void;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -105,7 +108,18 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
-  const [people, setPeople] = useState<string[]>([]);
+  const [people, setPeopleState] = useState<string[]>(() => {
+    // Load from localStorage on init
+    const saved = localStorage.getItem('altcorp_people');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return ['Eu'];
+      }
+    }
+    return ['Eu'];
+  });
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [lastRecurringCheck, setLastRecurringCheck] = useState<string>(
     localStorage.getItem('lastRecurringCheck') || ''
@@ -117,131 +131,150 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const [cards, setCards] = useState<Card[]>([]);
 
-  const addIncome = (income: Omit<Income, 'id'>) => {
-    setIncomes(prev => [...prev, { ...income, id: generateId() }]);
+  // Helper to update people with localStorage sync
+  const setPeople = (newPeople: string[]) => {
+    setPeopleState(newPeople);
+    localStorage.setItem('altcorp_people', JSON.stringify(newPeople));
   };
 
-  const removeIncome = (id: string) => {
-    setIncomes(prev => prev.filter(i => i.id !== id));
+  const addIncome = async (income: Omit<Income, 'id'>) => {
+    try {
+      const newIncome = await financeService.createIncome(income);
+      setIncomes(prev => [...prev, newIncome]);
+    } catch { /* silent */ }
   };
 
-  const addExpense = (expense: Omit<Expense, 'id'>) => {
-    setExpenses(prev => [...prev, { ...expense, id: generateId() }]);
+  const removeIncome = async (id: string) => {
+    try {
+      await financeService.deleteIncome(id);
+      setIncomes(prev => prev.filter(i => i.id !== id));
+    } catch { /* silent */ }
   };
 
-  const updateExpense = (id: string, updates: Partial<Omit<Expense, 'id'>>) => {
-    setExpenses(prev => prev.map(exp => {
-      if (exp.id === id) {
-        return { ...exp, ...updates };
-      }
-      return exp;
-    }));
+  const addExpense = async (expense: Omit<Expense, 'id'>) => {
+    try {
+      const newExpense = await financeService.createExpense(expense);
+      setExpenses(prev => [...prev, newExpense]);
+    } catch { /* silent */ }
   };
 
-  const removeExpense = (id: string) => {
-    setExpenses(prev => prev.filter(e => e.id !== id));
-  };
-
-  const addCard = (card: Omit<Card, 'id' | 'invoiceItems'>) => {
-    setCards(prev => [...prev, { ...card, id: generateId(), invoiceItems: [] }]);
-  };
-
-  const removeCard = (id: string) => {
-    setCards(prev => prev.filter(c => c.id !== id));
-  };
-
-  const addInvoiceItem = (cardId: string, item: Omit<InvoiceItem, 'id'>, installments?: number) => {
-    setCards(prev => prev.map(card => {
-      if (card.id === cardId) {
-        const newItems: InvoiceItem[] = [];
-        
-        if (installments && installments > 1) {
-          const installmentAmount = parseFloat((item.amount / installments).toFixed(2));
-          const baseDate = new Date(item.date);
-          
-          for (let i = 0; i < installments; i++) {
-            const installmentDate = new Date(baseDate);
-            installmentDate.setMonth(baseDate.getMonth() + i);
-            
-            newItems.push({
-              ...item,
-              id: generateId(),
-              date: installmentDate.toISOString().split('T')[0],
-              description: `${item.description} (${i + 1}/${installments})`,
-              amount: installmentAmount,
-              installmentInfo: {
-                currentInstallment: i + 1,
-                totalInstallments: installments,
-                originalAmount: item.amount,
-              },
-            });
-          }
-        } else {
-          newItems.push({ ...item, id: generateId() });
+  const updateExpense = async (id: string, updates: Partial<Omit<Expense, 'id'>>) => {
+    try {
+      const updatedExpense = await financeService.updateExpense(id, updates);
+      setExpenses(prev => prev.map(exp => {
+        if (exp.id === id) {
+          return { ...exp, ...updatedExpense };
         }
-        
-        return {
-          ...card,
-          invoiceItems: [...card.invoiceItems, ...newItems],
-        };
-      }
-      return card;
-    }));
+        return exp;
+      }));
+    } catch { /* silent */ }
   };
 
-  const updateInvoiceItem = (cardId: string, itemId: string, updates: Partial<Omit<InvoiceItem, 'id'>>) => {
-    setCards(prev => prev.map(card => {
-      if (card.id === cardId) {
-        return {
-          ...card,
-          invoiceItems: card.invoiceItems.map(item => {
-            if (item.id === itemId) {
-              return { ...item, ...updates };
-            }
-            return item;
-          }),
-        };
-      }
-      return card;
-    }));
+  const removeExpense = async (id: string) => {
+    try {
+      await financeService.deleteExpense(id);
+      setExpenses(prev => prev.filter(e => e.id !== id));
+    } catch { /* silent */ }
   };
 
-  const removeInvoiceItem = (cardId: string, itemId: string) => {
-    setCards(prev => prev.map(card => {
-      if (card.id === cardId) {
-        return {
-          ...card,
-          invoiceItems: card.invoiceItems.filter(item => item.id !== itemId),
-        };
-      }
-      return card;
-    }));
+  const addCard = async (card: Omit<Card, 'id' | 'invoiceItems'>) => {
+    try {
+      const newCard = await financeService.createCard(card);
+      setCards(prev => [...prev, newCard]);
+    } catch { /* silent */ }
   };
 
-  const importCSV = (cardId: string, items: Omit<InvoiceItem, 'id'>[]) => {
-    setCards(prev => prev.map(card => {
-      if (card.id === cardId) {
-        return {
-          ...card,
-          invoiceItems: [
-            ...card.invoiceItems,
-            ...items.map(item => ({ ...item, id: generateId() })),
-          ],
-        };
+  const removeCard = async (id: string) => {
+    try {
+      await financeService.deleteCard(id);
+      setCards(prev => prev.filter(c => c.id !== id));
+    } catch { /* silent */ }
+  };
+
+  const addInvoiceItem = async (cardId: string, item: Omit<InvoiceItem, 'id'>, installments?: number) => {
+    try {
+      const newItems = await financeService.addInvoiceItem(cardId, item, installments);
+      setCards(prev => prev.map(card => {
+        if (card.id === cardId) {
+          return {
+            ...card,
+            invoiceItems: [...card.invoiceItems, ...newItems],
+          };
+        }
+        return card;
+      }));
+    } catch { /* silent */ }
+  };
+
+  const updateInvoiceItem = async (cardId: string, itemId: string, updates: Partial<Omit<InvoiceItem, 'id'>>) => {
+    try {
+      const updatedItem = await financeService.updateInvoiceItem(cardId, itemId, updates);
+      setCards(prev => prev.map(card => {
+        if (card.id === cardId) {
+          return {
+            ...card,
+            invoiceItems: card.invoiceItems.map(item => {
+              if (item.id === itemId) {
+                return { ...item, ...updatedItem };
+              }
+              return item;
+            }),
+          };
+        }
+        return card;
+      }));
+    } catch { /* silent */ }
+  };
+
+  const removeInvoiceItem = async (cardId: string, itemId: string) => {
+    try {
+      await financeService.deleteInvoiceItem(cardId, itemId);
+      setCards(prev => prev.map(card => {
+        if (card.id === cardId) {
+          return {
+            ...card,
+            invoiceItems: card.invoiceItems.filter(item => item.id !== itemId),
+          };
+        }
+        return card;
+      }));
+    } catch { /* silent */ }
+  };
+
+  const importCSV = async (cardId: string, items: Omit<InvoiceItem, 'id'>[]) => {
+    try {
+      const addedItems: InvoiceItem[] = [];
+      for (const item of items) {
+        const created = await financeService.addInvoiceItem(cardId, item);
+        addedItems.push(...created);
       }
-      return card;
-    }));
+
+      setCards(prev => prev.map(card => {
+        if (card.id === cardId) {
+          return {
+            ...card,
+            invoiceItems: [
+              ...card.invoiceItems,
+              ...addedItems
+            ],
+          };
+        }
+        return card;
+      }));
+    } catch { /* silent */ }
   };
 
   const addPerson = (name: string) => {
     if (name.trim() && !people.includes(name.trim())) {
-      setPeople(prev => [...prev, name.trim()]);
+      const newPeople = [...people, name.trim()];
+      setPeople(newPeople);
     }
   };
 
   const removePerson = (name: string) => {
     if (name !== 'Eu') {
-      setPeople(prev => prev.filter(p => p !== name));
+      const newPeople = people.filter(p => p !== name);
+      setPeople(newPeople);
     }
   };
 
@@ -249,24 +282,38 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     setPeople(newPeople);
   };
 
-  const setInitialIncome = (amount: number) => {
-    // Clear existing fixed income and set new one
-    setIncomes([
-      { id: generateId(), description: 'Salário', amount, type: 'fixed' },
-    ]);
+  const setInitialIncome = async (amount: number) => {
+    try {
+      const newIncome = await financeService.createIncome({
+        description: 'Salário',
+        amount,
+        type: 'fixed',
+      });
+      setIncomes([newIncome]);
+    } catch {
+      setIncomes([
+        { id: generateId(), description: 'Salário', amount, type: 'fixed' },
+      ]);
+    }
   };
 
-  const setInitialCards = (newCards: Array<{ name: string; limit: number }>) => {
+  const setInitialCards = async (newCards: Array<{ name: string; limit: number }>) => {
     const cardColors = ['#8B5CF6', '#F97316', '#EF4444', '#3B82F6', '#10B981', '#6366F1'];
-    setCards(
-      newCards.map((card, index) => ({
-        id: generateId(),
-        name: card.name,
-        type: 'credit' as const,
-        color: cardColors[index % cardColors.length],
-        invoiceItems: [],
-      }))
-    );
+    const createdCards: Card[] = [];
+    
+    for (let index = 0; index < newCards.length; index++) {
+      const card = newCards[index];
+      try {
+        const newCard = await financeService.createCard({
+          name: card.name,
+          type: 'credit',
+          color: cardColors[index % cardColors.length],
+        });
+        createdCards.push(newCard);
+      } catch { /* silent */ }
+    }
+    
+    setCards(createdCards);
   };
 
   const getTotalIncome = () => {
@@ -523,6 +570,38 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     checkRecurringExpenses();
   }, []);
 
+  // Function to load finance data (called after login)
+  const loadFinanceData = async () => {
+    try {
+      const [loadedIncomes, loadedExpenses, loadedCards] = await Promise.all([
+        financeService.getIncomes(),
+        financeService.getExpenses(),
+        financeService.getCards()
+      ]);
+      setIncomes(loadedIncomes);
+      setExpenses(loadedExpenses);
+      setCards(loadedCards);
+      
+      // Load people from localStorage
+      const savedPeople = localStorage.getItem('altcorp_people');
+      if (savedPeople) {
+        try {
+          const parsed = JSON.parse(savedPeople);
+          setPeopleState(parsed);
+        } catch {
+          setPeopleState(['Eu']);
+        }
+      }
+    } catch { /* silent */ }
+  };
+
+  const clearFinanceData = () => {
+    setIncomes([]);
+    setExpenses([]);
+    setCards([]);
+    setBudgets([]);
+  };
+
   return (
     <FinanceContext.Provider value={{
       incomes,
@@ -560,6 +639,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       getBalance,
       getPreviousMonthExpenses,
       getExpensesByCategory,
+      loadFinanceData,
+      clearFinanceData,
     }}>
       {children}
     </FinanceContext.Provider>

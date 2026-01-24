@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StepWelcome } from './steps/StepWelcome';
+import { StepPhoto } from './steps/StepPhoto';
 import { StepAppearance } from './steps/StepAppearance';
 import { StepIncome } from './steps/StepIncome';
 import { StepCards } from './steps/StepCards';
@@ -11,6 +12,7 @@ export interface OnboardingData {
   firstName: string;
   lastName: string;
   email: string;
+  profilePhoto?: string;
   theme: 'light' | 'dark';
   monthlyIncome: number;
   cards: Array<{ name: string; limit: number }>;
@@ -29,6 +31,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
     firstName: '',
     lastName: '',
     email: '',
+    profilePhoto: undefined,
     theme: 'dark',
     monthlyIncome: 0,
     cards: [],
@@ -40,8 +43,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
     setData(prev => ({ ...prev, ...updates }));
   };
 
+  const totalSteps = 6; // Welcome, Photo, Appearance, Income, Cards, People
+
   const nextStep = () => {
-    if (currentStep < 4) {
+    if (currentStep < totalSteps - 1) {
       setCurrentStep(prev => prev + 1);
     } else {
       setShowComplete(true);
@@ -74,6 +79,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
 
   const steps = [
     <StepWelcome key="welcome" data={data} updateData={updateData} onNext={nextStep} />,
+    <StepPhoto key="photo" data={data} updateData={updateData} onNext={nextStep} onPrev={prevStep} />,
     <StepAppearance key="appearance" data={data} updateData={updateData} onNext={nextStep} onPrev={prevStep} />,
     <StepIncome key="income" data={data} updateData={updateData} onNext={nextStep} onPrev={prevStep} />,
     <StepCards key="cards" data={data} updateData={updateData} onNext={nextStep} onPrev={prevStep} />,
@@ -89,7 +95,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
       {/* Progress indicator */}
       <div className="pt-safe px-6 pt-8">
         <div className="flex gap-2">
-          {[0, 1, 2, 3, 4].map((step) => (
+          {Array.from({ length: totalSteps }).map((_, step) => (
             <motion.div
               key={step}
               className={`h-1 flex-1 rounded-full ${

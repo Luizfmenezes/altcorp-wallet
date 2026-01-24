@@ -78,9 +78,8 @@ export default function UserManagement() {
       const data = await userService.getAllUsers();
       setUsers(data);
       setError('');
-    } catch (err) {
+    } catch {
       setError('Erro ao carregar usuários');
-      console.error(err);
     } finally {
       setLoading(false);
     }

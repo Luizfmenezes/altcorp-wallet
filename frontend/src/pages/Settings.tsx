@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Moon, Sun, LogOut, Palette, Users, Plus, Trash2, Camera, Save, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
@@ -24,24 +24,37 @@ const Settings: React.FC = () => {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   
-  // Profile edit state - load from user data (from database)
-  const [profileFirstName, setProfileFirstName] = useState(() => {
-    if (user?.profile?.firstName) return user.profile.firstName;
-    if (user?.name) return user.name.split(' ')[0] || '';
-    return '';
-  });
-  const [profileLastName, setProfileLastName] = useState(() => {
-    if (user?.profile?.lastName) return user.profile.lastName;
-    if (user?.name) {
-      const nameParts = user.name.split(' ');
-      return nameParts.slice(1).join(' ') || '';
+  // Profile edit state
+  const [profileFirstName, setProfileFirstName] = useState('');
+  const [profileLastName, setProfileLastName] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+
+  // Update profile fields when user data changes
+  useEffect(() => {
+    if (user) {
+      // First name
+      if (user.profile?.firstName) {
+        setProfileFirstName(user.profile.firstName);
+      } else if (user.name) {
+        setProfileFirstName(user.name.split(' ')[0] || '');
+      }
+      
+      // Last name
+      if (user.profile?.lastName) {
+        setProfileLastName(user.profile.lastName);
+      } else if (user.name) {
+        const nameParts = user.name.split(' ');
+        setProfileLastName(nameParts.slice(1).join(' ') || '');
+      }
+      
+      // Email - prioritize apiUser.email (from database)
+      if (user.apiUser?.email) {
+        setProfileEmail(user.apiUser.email);
+      } else if (user.profile?.email) {
+        setProfileEmail(user.profile.email);
+      }
     }
-    return '';
-  });
-  const [profileEmail, setProfileEmail] = useState(() => {
-    if (user?.profile?.email) return user.profile.email;
-    return user?.apiUser?.email || '';
-  });
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -87,8 +100,7 @@ const Settings: React.FC = () => {
         title: 'Perfil atualizado',
         description: 'Suas alterações foram salvas no banco.',
       });
-    } catch (error) {
-      console.error('Error updating profile:', error);
+    } catch {
       toast({
         title: 'Erro',
         description: 'Falha ao atualizar perfil.',
@@ -127,20 +139,17 @@ const Settings: React.FC = () => {
 
     setIsUploadingPhoto(true);
     try {
-      // Convert to base64
       const reader = new FileReader();
       reader.onloadend = async () => {
         try {
           const base64 = reader.result as string;
           await authService.updateProfilePhoto(base64);
-          // Update local state without page reload
           updateProfilePhoto(base64);
           toast({
             title: 'Sucesso',
             description: 'Foto de perfil atualizada!',
           });
-        } catch (err) {
-          console.error('Error uploading photo:', err);
+        } catch {
           toast({
             title: 'Erro',
             description: 'Falha ao atualizar foto de perfil.',
@@ -151,8 +160,7 @@ const Settings: React.FC = () => {
         }
       };
       reader.readAsDataURL(file);
-    } catch (err) {
-      console.error('Error reading file:', err);
+    } catch {
       toast({
         title: 'Erro',
         description: 'Falha ao ler arquivo.',

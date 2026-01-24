@@ -3,6 +3,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Accept build arguments
+ARG VITE_API_URL=http://localhost:8000/api/v1
+ENV VITE_API_URL=$VITE_API_URL
+
 # Copy package files
 COPY package.json bun.lockb ./
 
@@ -12,8 +16,8 @@ RUN npm install -g bun && bun install
 # Copy source code
 COPY . .
 
-# Build the application
-RUN bun run build
+# Build the application with environment variable
+RUN echo "Building with VITE_API_URL=$VITE_API_URL" && bun run build
 
 # Production stage
 FROM nginx:alpine

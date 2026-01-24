@@ -15,8 +15,15 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # CORS
+    # CORS - Aceita múltiplas origens separadas por vírgula
     ALLOWED_ORIGINS: str = "http://localhost,http://localhost:80,http://localhost:3000"
+    
+    # Domain (para produção)
+    DOMAIN: str = "localhost"
+    
+    def get_allowed_origins(self) -> List[str]:
+        """Parse ALLOWED_ORIGINS string into list"""
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
     
     class Config:
         env_file = ".env"

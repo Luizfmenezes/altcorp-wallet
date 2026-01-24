@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   database:
@@ -18,7 +16,7 @@ services:
     networks:
       - wallet-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U walletuser -d altcorp_wallet"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-walletuser} -d ${POSTGRES_DB:-altcorp_wallet}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -31,14 +29,14 @@ services:
     container_name: altcorp-wallet-backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-walletuser}:${POSTGRES_PASSWORD:-walletpass123}@database:5432/${POSTGRES_DB:-altcorp_wallet}
       API_HOST: 0.0.0.0
       API_PORT: 8000
-      DEBUG: ${DEBUG:-False}
-      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: ${DEBUG:-True}
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost,http://localhost:80,http://localhost:8080,http://192.168.15.5:8080}
     ports:
       - "8000:8000"
     networks:
@@ -55,16 +53,18 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://192.168.15.5:8000/api/v1}
     container_name: altcorp-wallet-frontend
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8080:80"
     networks:
       - wallet-network
     depends_on:
       - backend
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=${VITE_API_URL:-http://192.168.15.5:8000/api/v1}
 
 networks:
   wallet-network:

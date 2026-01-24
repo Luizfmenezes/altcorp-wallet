@@ -31,26 +31,19 @@ export interface AuthResponse {
 
 class AuthService {
   async login(credentials: LoginCredentials): Promise<User> {
-    console.log('AuthService.login called with username:', credentials.username);
-    
     const formData = new URLSearchParams();
     formData.append('username', credentials.username);
     formData.append('password', credentials.password);
 
-    console.log('Sending login request...');
     const { data } = await api.post<AuthResponse>('/auth/login', formData, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
     });
 
-    console.log('Login response received, token:', data.access_token.substring(0, 20) + '...');
     localStorage.setItem('token', data.access_token);
     
-    // Get user info
-    console.log('Fetching current user...');
     const user = await this.getCurrentUser();
-    console.log('User fetched:', user);
     localStorage.setItem('user', JSON.stringify(user));
     
     return user;

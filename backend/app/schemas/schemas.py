@@ -1,26 +1,26 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 
 # Enums
 class IncomeType(str, Enum):
-    FIXED = "fixed"
-    EXTRA = "extra"
+    fixed = "fixed"
+    extra = "extra"
 
 class CardType(str, Enum):
-    CREDIT = "credit"
-    DEBIT = "debit"
-    BANK = "bank"
+    credit = "credit"
+    debit = "debit"
+    bank = "bank"
 
 class FrequencyType(str, Enum):
-    MONTHLY = "monthly"
-    WEEKLY = "weekly"
+    monthly = "monthly"
+    weekly = "weekly"
 
 class UserRole(str, Enum):
-    ADMIN = "admin"
-    USER = "user"
-    TEMP = "temp"
+    admin = "admin"
+    user = "user"
+    temp = "temp"
 
 # User Schemas
 class UserBase(BaseModel):
@@ -30,16 +30,23 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
     email: Optional[EmailStr] = None
-    role: UserRole = UserRole.USER
+    role: UserRole = UserRole.user
 
 class UserUpdate(BaseModel):
     username: Optional[str] = None
     name: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None  # Accept any string, validate in validator
     role: Optional[UserRole] = None
     is_active: Optional[bool] = None
     onboarding_completed: Optional[bool] = None
     profile_photo: Optional[str] = None
+    
+    @field_validator('email', mode='before')
+    @classmethod
+    def empty_string_to_none(cls, v):
+        if v is None or v == '':
+            return None
+        return v
 
 class UserResponse(UserBase):
     id: int
@@ -115,14 +122,6 @@ class CardBase(BaseModel):
 class CardCreate(CardBase):
     pass
 
-class CardResponse(CardBase):
-    id: int
-    user_id: int
-    created_at: datetime
-    
-    class Config:
-        from_attributes = True
-
 # Invoice Item Schemas
 class InstallmentInfo(BaseModel):
     current_installment: int
@@ -155,6 +154,16 @@ class InvoiceItemResponse(InvoiceItemBase):
     id: int
     card_id: int
     created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+# CardResponse needs to be defined AFTER InvoiceItemResponse
+class CardResponse(CardBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    invoice_items: List[InvoiceItemResponse] = []
     
     class Config:
         from_attributes = True

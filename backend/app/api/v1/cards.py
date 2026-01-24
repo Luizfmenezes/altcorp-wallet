@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -21,7 +21,7 @@ def get_cards(
     db: Session = Depends(get_db)
 ):
     """Get all cards for the current user"""
-    cards = db.query(Card).filter(Card.user_id == current_user.id).offset(skip).limit(limit).all()
+    cards = db.query(Card).options(joinedload(Card.invoice_items)).filter(Card.user_id == current_user.id).offset(skip).limit(limit).all()
     return cards
 
 @router.get("/{card_id}", response_model=CardResponse)
@@ -31,7 +31,7 @@ def get_card(
     db: Session = Depends(get_db)
 ):
     """Get a specific card by ID"""
-    card = db.query(Card).filter(
+    card = db.query(Card).options(joinedload(Card.invoice_items)).filter(
         Card.id == card_id,
         Card.user_id == current_user.id
     ).first()

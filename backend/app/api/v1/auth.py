@@ -84,7 +84,7 @@ def register(
         email=user_data.email,
         name=user_data.name,
         hashed_password=hashed_password,
-        role=UserRole.ADMIN,  # First user is always admin
+        role=UserRole.admin,  # First user is always admin
         is_active=True
     )
     

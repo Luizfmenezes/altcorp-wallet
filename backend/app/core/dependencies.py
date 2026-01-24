@@ -59,7 +59,7 @@ def require_role(required_roles: list[UserRole]):
 # Specific role dependencies
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
     """Require admin role"""
-    if current_user.role != UserRole.ADMIN:
+    if current_user.role != UserRole.admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
@@ -68,7 +68,7 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
 
 def require_user_or_admin(current_user: User = Depends(get_current_user)) -> User:
     """Require user or admin role (not temp)"""
-    if current_user.role == UserRole.TEMP:
+    if current_user.role == UserRole.temp:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Full user access required"

@@ -456,9 +456,9 @@ const PDFExportDialog: React.FC<PDFExportDialogProps> = ({
         doc.text(formatCurrency(totalAmount), pageWidth - 30, finalY + 28, { align: 'right' });
       }
       
-      // Agora que todas as páginas foram criadas, adiciona os footers
+      // Agora que todas as páginas foram criadas, adiciona os footers (exceto na capa)
       const totalPages = doc.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
+      for (let i = 2; i <= totalPages; i++) {
         doc.setPage(i);
         drawFooter(i, totalPages);
       }
@@ -466,9 +466,7 @@ const PDFExportDialog: React.FC<PDFExportDialogProps> = ({
       const fileName = 'Fatura_' + card.name.replace(/[^a-zA-Z0-9]/g, '_') + '_' + MONTH_NAMES[month] + '_' + year + '.pdf';
       doc.save(fileName);
       onOpenChange(false);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-    } finally {
+    } catch { /* silent */ } finally {
       setIsGenerating(false);
     }
   };

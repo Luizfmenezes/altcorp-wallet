@@ -20,12 +20,8 @@ const Login: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    console.log('Login attempt:', { username, password: '***' });
-
     try {
       const success = await login(username, password);
-      
-      console.log('Login result:', success);
       
       if (success) {
         toast({
@@ -40,8 +36,7 @@ const Login: React.FC = () => {
           variant: 'destructive',
         });
       }
-    } catch (error) {
-      console.error('Login error:', error);
+    } catch {
       toast({
         title: 'Erro',
         description: 'Ocorreu um erro. Tente novamente.',

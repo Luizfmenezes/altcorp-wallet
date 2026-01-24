@@ -76,8 +76,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setHasCompletedOnboarding(apiUser.onboarding_completed);
       
       return true;
-    } catch (error) {
-      console.error('Login failed:', error);
+    } catch {
       return false;
     }
   };
@@ -85,10 +84,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const register = async (name: string, username: string, password: string): Promise<boolean> => {
     try {
       await authService.register({ name, username, password });
-      // Auto login after registration
       return await login(username, password);
-    } catch (error) {
-      console.error('Registration failed:', error);
+    } catch {
       return false;
     }
   };

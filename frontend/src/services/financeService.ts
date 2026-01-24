@@ -30,8 +30,7 @@ export const financeService = {
       const response = await api.get('/incomes/');
       if (!response.data || !Array.isArray(response.data)) return [];
       return response.data.map((item: any) => ({ ...item, id: String(item.id) }));
-    } catch (error) {
-      console.error("Erro getIncomes:", error);
+    } catch {
       return [];
     }
   },
@@ -49,8 +48,7 @@ export const financeService = {
       const response = await api.get('/expenses/');
       if (!response.data || !Array.isArray(response.data)) return [];
       return response.data.map((item: any) => ({ ...item, id: String(item.id) }));
-    } catch (error) {
-      console.error("Erro getExpenses:", error);
+    } catch {
       return [];
     }
   },
@@ -72,14 +70,11 @@ export const financeService = {
       const response = await api.get('/cards/');
       if (!response.data || !Array.isArray(response.data)) return [];
       return response.data.map(adaptCard);
-    } catch (error) {
-      console.error("Erro getCards:", error);
+    } catch {
       return [];
     }
   },
   createCard: async (data: CreateCard) => {
-    console.log('[DEBUG] createCard called with:', data);
-    console.log('[DEBUG] data.type:', data.type, 'typeof:', typeof data.type);
     const response = await api.post('/cards/', data);
     return adaptCard(response.data);
   },
@@ -91,13 +86,17 @@ export const financeService = {
   addInvoiceItem: async (cardId: string, item: Omit<InvoiceItem, 'id'>, installments?: number) => {
     const payload = { ...item, installments }; 
     const response = await api.post(`/cards/${cardId}/items`, payload);
-    const createdItem = Array.isArray(response.data) ? response.data[0] : response.data;
-    return { ...createdItem, id: String(createdItem.id) };
+    const items = Array.isArray(response.data) ? response.data : [response.data];
+    return items.map((i: any) => ({ ...i, id: String(i.id) }));
   },
   
   // AQUI A CORREÇÃO DA DELEÇÃO
   deleteInvoiceItem: async (cardId: string, itemId: string) => {
     await api.delete(`/cards/${cardId}/items/${itemId}`);
+  },
+  updateInvoiceItem: async (cardId: string, itemId: string, updates: Partial<Omit<InvoiceItem, 'id'>>) => {
+    const response = await api.put(`/cards/${cardId}/items/${itemId}`, updates);
+    return { ...response.data, id: String(response.data.id) };
   },
 
   // === ORÇAMENTOS ===
@@ -106,8 +105,7 @@ export const financeService = {
       const response = await api.get('/budgets/');
       if (!response.data || !Array.isArray(response.data)) return [];
       return response.data.map((item: any) => ({ ...item, id: String(item.id) }));
-    } catch (error) {
-      console.error("Erro getBudgets:", error);
+    } catch {
       return [];
     }
   },

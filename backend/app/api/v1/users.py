@@ -40,7 +40,7 @@ def complete_onboarding(
         # Update user profile with onboarding data
         if user_data.name is not None:
             current_user.name = user_data.name
-        if user_data.email is not None:
+        if user_data.email is not None and user_data.email.strip() != '':
             current_user.email = user_data.email
         
         # Mark onboarding as completed

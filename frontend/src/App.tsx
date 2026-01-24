@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { FinanceProvider, useFinance } from "@/contexts/FinanceContext";
 import { OnboardingWizard, OnboardingData } from "@/components/onboarding/OnboardingWizard";
+import { useEffect, useRef } from "react";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Incomes from "./pages/Incomes";
@@ -19,6 +20,27 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// Component to load finance data when authenticated
+const FinanceDataLoader: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { loadFinanceData, clearFinanceData } = useFinance();
+  const hasLoadedRef = useRef(false);
+
+  useEffect(() => {
+    if (authLoading) return;
+    
+    if (isAuthenticated && !hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      loadFinanceData();
+    } else if (!isAuthenticated && hasLoadedRef.current) {
+      hasLoadedRef.current = false;
+      clearFinanceData();
+    }
+  }, [isAuthenticated, authLoading, loadFinanceData, clearFinanceData]);
+
+  return <>{children}</>;
+};
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
   
@@ -30,30 +52,37 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const OnboardingWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { hasCompletedOnboarding, completeOnboarding, isAuthenticated, isLoading } = useAuth();
-  const { setInitialIncome, setInitialCards, setPeople } = useFinance();
+  const { hasCompletedOnboarding, completeOnboarding, isAuthenticated, isLoading, updateProfilePhoto } = useAuth();
+  const { setInitialIncome, setInitialCards, setPeople, loadFinanceData } = useFinance();
 
   const handleOnboardingComplete = async (data: OnboardingData) => {
-    // Set initial income
-    if (data.monthlyIncome > 0) {
-      setInitialIncome(data.monthlyIncome);
-    }
-
-    // Set initial cards
-    if (data.cards.length > 0) {
-      setInitialCards(data.cards);
-    }
-
-    // Set people
+    // Set people first (this is sync and uses localStorage)
     setPeople(data.people);
 
-    // Complete onboarding in the database with name and email
+    // Set initial income (async - waits for API)
+    if (data.monthlyIncome > 0) {
+      await setInitialIncome(data.monthlyIncome);
+    }
+
+    if (data.cards.length > 0) {
+      await setInitialCards(data.cards);
+    }
+
+    if (data.profilePhoto) {
+      try {
+        const authService = (await import('@/services/authService')).default;
+        await authService.updateProfilePhoto(data.profilePhoto);
+        updateProfilePhoto(data.profilePhoto);
+      } catch { /* silent */ }
+    }
+
     const fullName = `${data.firstName} ${data.lastName}`;
-    // Only send email if it's valid (contains @ and .)
     const emailToSend = data.email.trim() !== '' && data.email.includes('@') && data.email.includes('.') 
       ? data.email.trim() 
       : undefined;
     await completeOnboarding(fullName, emailToSend);
+    
+    await loadFinanceData();
   };
 
   // Wait for auth to load before deciding
@@ -145,13 +174,15 @@ const App = () => (
     <ThemeProvider>
       <AuthProvider>
         <FinanceProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
-          </TooltipProvider>
+          <FinanceDataLoader>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </TooltipProvider>
+          </FinanceDataLoader>
         </FinanceProvider>
       </AuthProvider>
     </ThemeProvider>
