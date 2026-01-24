@@ -43,7 +43,8 @@ def create_income(
     db: Session = Depends(get_db)
 ):
     """Create a new income"""
-    db_income = Income(**income.dict(), user_id=current_user.id)
+    income_data = income.model_dump(mode='json')
+    db_income = Income(**income_data, user_id=current_user.id)
     db.add(db_income)
     db.commit()
     db.refresh(db_income)

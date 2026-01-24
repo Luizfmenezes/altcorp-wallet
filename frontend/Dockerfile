@@ -9,14 +9,11 @@ COPY package.json bun.lockb ./
 # Install dependencies
 RUN npm install -g bun && bun install
 
-# Copy source code
+# Copy source code (includes .env.production)
 COPY . .
 
-# Build argument for API URL (can be overridden at build time)
-ARG VITE_API_URL=""
-ENV VITE_API_URL=$VITE_API_URL
-
 # Build the application
+# The build will automatically use .env.production if VITE_API_URL is not set
 RUN bun run build
 
 # Production stage

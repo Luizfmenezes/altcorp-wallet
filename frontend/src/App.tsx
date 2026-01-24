@@ -11,6 +11,11 @@ import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Settings from "./pages/Settings";
+import Incomes from "./pages/Incomes";
+import Expenses from "./pages/Expenses";
+import Wallet from "./pages/Wallet";
+import CardDetail from "./pages/CardDetail";
+import UserManagement from "./pages/UserManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -71,11 +76,51 @@ const App = () => (
                     </PrivateRoute>
                   }
                 />
-                 <Route
+                <Route
+                  path="/incomes"
+                  element={
+                    <PrivateRoute>
+                      <Incomes />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/expenses"
+                  element={
+                    <PrivateRoute>
+                      <Expenses />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/wallet"
+                  element={
+                    <PrivateRoute>
+                      <Wallet />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/wallet/:id"
+                  element={
+                    <PrivateRoute>
+                      <CardDetail />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
                   path="/settings"
                   element={
                     <PrivateRoute>
                       <Settings />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/admin/users"
+                  element={
+                    <PrivateRoute>
+                      <UserManagement />
                     </PrivateRoute>
                   }
                 />

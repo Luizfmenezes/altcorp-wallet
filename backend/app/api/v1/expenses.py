@@ -62,7 +62,8 @@ def get_expense(expense_id: int, current_user: User = Depends(get_current_user),
 @router.post("/", response_model=ExpenseResponse, status_code=status.HTTP_201_CREATED)
 def create_expense(expense: ExpenseCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Create a new expense"""
-    db_expense = Expense(**expense.dict(), user_id=current_user.id)
+    expense_data = expense.model_dump(mode='json')
+    db_expense = Expense(**expense_data, user_id=current_user.id)
     db.add(db_expense)
     db.commit()
     db.refresh(db_expense)

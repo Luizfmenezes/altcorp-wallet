@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
@@ -7,20 +7,60 @@ from enum import Enum
 class IncomeType(str, Enum):
     FIXED = "fixed"
     EXTRA = "extra"
+    
+    @classmethod
+    def _missing_(cls, value):
+        """Handle case-insensitive matching"""
+        if isinstance(value, str):
+            value = value.lower()
+            for member in cls:
+                if member.value == value:
+                    return member
+        return None
 
 class CardType(str, Enum):
     CREDIT = "credit"
     DEBIT = "debit"
     BANK = "bank"
+    
+    @classmethod
+    def _missing_(cls, value):
+        """Handle case-insensitive matching"""
+        if isinstance(value, str):
+            value = value.lower()
+            for member in cls:
+                if member.value == value:
+                    return member
+        return None
 
 class FrequencyType(str, Enum):
     MONTHLY = "monthly"
     WEEKLY = "weekly"
+    
+    @classmethod
+    def _missing_(cls, value):
+        """Handle case-insensitive matching"""
+        if isinstance(value, str):
+            value = value.lower()
+            for member in cls:
+                if member.value == value:
+                    return member
+        return None
 
 class UserRole(str, Enum):
     ADMIN = "admin"
     USER = "user"
     TEMP = "temp"
+    
+    @classmethod
+    def _missing_(cls, value):
+        """Handle case-insensitive matching"""
+        if isinstance(value, str):
+            value = value.lower()
+            for member in cls:
+                if member.value == value:
+                    return member
+        return None
 
 # === 2. USER SCHEMAS ===
 class UserBase(BaseModel):

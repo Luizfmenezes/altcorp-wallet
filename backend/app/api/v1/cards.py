@@ -49,8 +49,36 @@ def create_card(
     db: Session = Depends(get_db)
 ):
     """Create a new card"""
-    db_card = Card(**card.dict(), user_id=current_user.id)
+    print(f"[DEBUG] Received card: {card}")
+    print(f"[DEBUG] Card type before dump: {card.type} (type: {type(card.type)})")
+    card_data = card.model_dump(mode='json')
+    print(f"[DEBUG] Card data after dump: {card_data}")
+    db_card = Card(**card_data, user_id=current_user.id)
     db.add(db_card)
+    db.commit()
+    db.refresh(db_card)
+    return db_card
+
+@router.put("/{card_id}", response_model=CardResponse)
+def update_card(
+    card_id: int,
+    card: CardCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update a card"""
+    db_card = db.query(Card).filter(
+        Card.id == card_id,
+        Card.user_id == current_user.id
+    ).first()
+    
+    if not db_card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    
+    card_data = card.model_dump(mode='json')
+    for key, value in card_data.items():
+        setattr(db_card, key, value)
+    
     db.commit()
     db.refresh(db_card)
     return db_card

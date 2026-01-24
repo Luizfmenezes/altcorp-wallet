@@ -78,6 +78,8 @@ export const financeService = {
     }
   },
   createCard: async (data: CreateCard) => {
+    console.log('[DEBUG] createCard called with:', data);
+    console.log('[DEBUG] data.type:', data.type, 'typeof:', typeof data.type);
     const response = await api.post('/cards/', data);
     return adaptCard(response.data);
   },

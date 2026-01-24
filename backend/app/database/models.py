@@ -7,20 +7,56 @@ import enum
 class IncomeType(str, enum.Enum):
     FIXED = "fixed"
     EXTRA = "extra"
+    
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            value = value.lower()
+            for member in cls:
+                if member.value == value:
+                    return member
+        return None
 
 class CardType(str, enum.Enum):
     CREDIT = "credit"
     DEBIT = "debit"
     BANK = "bank"
+    
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            value = value.lower()
+            for member in cls:
+                if member.value == value:
+                    return member
+        return None
 
 class FrequencyType(str, enum.Enum):
     MONTHLY = "monthly"
     WEEKLY = "weekly"
+    
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            value = value.lower()
+            for member in cls:
+                if member.value == value:
+                    return member
+        return None
 
 class UserRole(str, enum.Enum):
     ADMIN = "admin"
     USER = "user"
     TEMP = "temp"
+    
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            value = value.lower()
+            for member in cls:
+                if member.value == value:
+                    return member
+        return None
     
     def __str__(self):
         return self.value

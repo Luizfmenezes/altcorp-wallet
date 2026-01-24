@@ -51,8 +51,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        VITE_API_URL: ""
+      # No need to pass VITE_API_URL, it will use .env.production value (/api/v1)
+      # args:
+      #   VITE_API_URL: ""
     container_name: altcorp-wallet-frontend
     restart: unless-stopped
     ports:
