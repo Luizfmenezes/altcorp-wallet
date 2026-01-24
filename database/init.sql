@@ -66,10 +66,7 @@ CREATE TABLE IF NOT EXISTS invoice_items (
     description VARCHAR(255) NOT NULL,
     category VARCHAR(100) NOT NULL,
     amount DECIMAL(10, 2) NOT NULL,
-    owner VARCHAR(100) NOT NULL,
-    is_recurring BOOLEAN DEFAULT FALSE,
-    frequency frequency_type,
-    installment_info JSON,
+    installments VARCHAR(20),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

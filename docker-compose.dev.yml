@@ -1,0 +1,83 @@
+version: '3.8'
+
+# Docker Compose para Desenvolvimento
+# Usa volumes para hot-reload automático
+
+services:
+  database:
+    image: postgres:16-alpine
+    container_name: altcorp-wallet-db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-walletuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-walletpass123}
+      POSTGRES_DB: ${POSTGRES_DB:-altcorp_wallet}
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - wallet-network-dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U walletuser -d altcorp_wallet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: altcorp-wallet-backend-dev
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-walletuser}:${POSTGRES_PASSWORD:-walletpass123}@database:5432/${POSTGRES_DB:-altcorp_wallet}
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      DEBUG: "True"
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-not-for-production}
+      ALLOWED_ORIGINS: http://localhost,http://localhost:80,http://localhost:3000,http://localhost:5173
+    ports:
+      - "8000:8000"
+    networks:
+      - wallet-network-dev
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - backend_cache:/app/__pycache__
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Frontend em modo desenvolvimento (Vite dev server)
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: altcorp-wallet-frontend-dev
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    networks:
+      - wallet-network-dev
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    command: npm run dev -- --host 0.0.0.0
+
+networks:
+  wallet-network-dev:
+    driver: bridge
+    name: altcorp-wallet-network-dev
+
+volumes:
+  postgres_data_dev:
+    name: altcorp-wallet-postgres-data-dev
+  backend_cache:
+    name: altcorp-wallet-backend-cache

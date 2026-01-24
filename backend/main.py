@@ -28,11 +28,10 @@ app = FastAPI(
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     logger.error(f"❌ Validation error for {request.url}: {exc.errors()}")
-    body_str = str(exc.body) if exc.body else None
-    logger.error(f"❌ Request body: {body_str}")
+    logger.error(f"❌ Request body: {exc.body}")
     return JSONResponse(
         status_code=422,
-        content={"detail": exc.errors(), "body": body_str}
+        content={"detail": exc.errors(), "body": exc.body}
     )
 
 # Configure CORS

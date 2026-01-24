@@ -1,121 +1,183 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import api from '../services/api';
-import { useToast } from '@/hooks/use-toast';
+import authService, { type User as ApiUser } from '@/services/authService';
 
-// Interfaces
+interface UserProfile {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
 interface User {
-  id: number;
   username: string;
   name: string;
-  email?: string;
-  role: string;
-  onboarding_completed: boolean;
+  avatar?: string;
+  profile?: UserProfile;
+  role?: 'admin' | 'user' | 'temp';
   profile_photo?: string;
+  apiUser?: ApiUser;
 }
 
 interface AuthContextType {
-  isAuthenticated: boolean;
   user: User | null;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
-  // AQUI: Adicionamos a função que estava faltando
-  updateUser: (data: Partial<User>) => Promise<void>; 
+  register: (name: string, email: string, password: string) => Promise<boolean>;
+  isAuthenticated: boolean;
   isLoading: boolean;
+  hasCompletedOnboarding: boolean;
+  completeOnboarding: (name: string, email?: string) => Promise<void>;
+  updateUserProfile: (profile: UserProfile) => void;
+  updateProfile: (firstName: string, lastName: string, email?: string) => Promise<void>;
+  updateProfilePhoto: (photo: string) => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper to get onboarding key for a specific user
+const getOnboardingKey = (username: string) => `altcorp_onboarding_${username}`;
+const getProfileKey = (username: string) => `altcorp_profile_${username}`;
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
 
-  // Verificar token ao iniciar
+  // Check if user is already logged in on mount
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      fetchCurrentUser();
-    } else {
-      setIsLoading(false);
+    const apiUser = authService.getUser();
+    if (apiUser) {
+      setUser({
+        username: apiUser.username,
+        name: apiUser.name,
+        role: apiUser.role,
+        profile_photo: apiUser.profile_photo,
+        apiUser,
+      });
+      // Use the onboarding status from the API user (from database)
+      setHasCompletedOnboarding(apiUser.onboarding_completed);
     }
+    setIsLoading(false);
   }, []);
 
-  const fetchCurrentUser = async () => {
+  const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      const response = await api.get('/users/me');
-      setUser(response.data);
-      setIsAuthenticated(true);
-    } catch (error) {
-      console.error('Erro ao buscar usuário:', error);
-      logout();
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  const login = async (username: string, password: string) => {
-    try {
-      // CORREÇÃO: Usar URLSearchParams em vez de FormData
-      // O FastAPI espera 'application/x-www-form-urlencoded'
-      const params = new URLSearchParams();
-      params.append('username', username);
-      params.append('password', password);
-
-      // Enviamos params e forçamos o cabeçalho correto
-      const response = await api.post('/auth/login', params, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      });
-
-      const { access_token } = response.data;
-
-      localStorage.setItem('token', access_token);
-      api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      const apiUser = await authService.login({ username, password });
       
-      await fetchCurrentUser();
+      setUser({
+        username: apiUser.username,
+        name: apiUser.name,
+        role: apiUser.role,
+        profile_photo: apiUser.profile_photo,
+        apiUser,
+      });
+      
+      // Use the onboarding status from the API user (from database)
+      setHasCompletedOnboarding(apiUser.onboarding_completed);
+      
       return true;
     } catch (error) {
-      console.error('Login error:', error);
-      toast({
-        title: "Erro no login",
-        description: "Usuário ou senha incorretos",
-        variant: "destructive"
-      });
+      console.error('Login failed:', error);
       return false;
     }
   };
-  const logout = () => {
-    localStorage.removeItem('token');
-    delete api.defaults.headers.common['Authorization'];
-    setUser(null);
-    setIsAuthenticated(false);
+
+  const register = async (name: string, username: string, password: string): Promise<boolean> => {
+    try {
+      await authService.register({ name, username, password });
+      // Auto login after registration
+      return await login(username, password);
+    } catch (error) {
+      console.error('Registration failed:', error);
+      return false;
+    }
   };
 
-  // === NOVA FUNÇÃO ===
-  const updateUser = async (updates: Partial<User>) => {
+  const logout = () => {
+    authService.logout();
+    setUser(null);
+    setHasCompletedOnboarding(false);
+  };
+
+  const completeOnboarding = async (name: string, email?: string) => {
     try {
-      // Chama o backend para salvar a alteração
-      const response = await api.put('/users/me', updates);
-      
-      // Atualiza o estado local com os dados novos que voltaram do servidor
-      setUser(response.data);
-      
+      const updatedUser = await authService.completeOnboarding(name, email);
+      setUser(prev => prev ? {
+        ...prev,
+        name: updatedUser.name,
+        apiUser: updatedUser,
+      } : null);
+      setHasCompletedOnboarding(true);
     } catch (error) {
-      console.error('Erro ao atualizar usuário:', error);
-      throw error; // Lança o erro para o Onboarding tratar se precisar
+      console.error('Failed to complete onboarding:', error);
+    }
+  };
+
+  const updateUserProfile = (profile: UserProfile) => {
+    if (user) {
+      localStorage.setItem(getProfileKey(user.username), JSON.stringify(profile));
+      setUser(prev => prev ? {
+        ...prev,
+        name: `${profile.firstName} ${profile.lastName}`,
+        profile,
+      } : null);
+    }
+  };
+
+  const updateProfilePhoto = (photo: string) => {
+    if (user) {
+      setUser(prev => prev ? {
+        ...prev,
+        profile_photo: photo,
+      } : null);
+    }
+  };
+
+  const updateProfile = async (firstName: string, lastName: string, email?: string) => {
+    try {
+      const fullName = `${firstName} ${lastName}`.trim();
+      const updatedUser = await authService.updateProfile(fullName, email);
+      setUser(prev => prev ? {
+        ...prev,
+        name: updatedUser.name,
+        apiUser: updatedUser,
+      } : null);
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+    }
+  };
+
+  const refreshUser = async () => {
+    try {
+      const apiUser = await authService.getCurrentUser();
+      localStorage.setItem('user', JSON.stringify(apiUser));
+      setUser({
+        username: apiUser.username,
+        name: apiUser.name,
+        role: apiUser.role,
+        profile_photo: apiUser.profile_photo,
+        apiUser,
+      });
+      setHasCompletedOnboarding(apiUser.onboarding_completed);
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
     }
   };
 
   return (
     <AuthContext.Provider value={{ 
-      isAuthenticated, 
       user, 
-      login, 
+      login,
+      register,
       logout, 
-      updateUser, // Exportando a função
-      isLoading 
+      isAuthenticated: !!user,
+      isLoading,
+      hasCompletedOnboarding,
+      completeOnboarding,
+      updateUserProfile,
+      updateProfile,
+      updateProfilePhoto,
+      refreshUser,
     }}>
       {children}
     </AuthContext.Provider>
@@ -125,7 +187,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };

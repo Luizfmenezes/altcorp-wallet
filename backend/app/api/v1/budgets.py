@@ -51,8 +51,7 @@ def create_or_update_budget(
         return existing_budget
     
     # Create new budget
-    budget_data = budget.model_dump(mode='json')
-    db_budget = Budget(**budget_data, user_id=current_user.id)
+    db_budget = Budget(**budget.dict(), user_id=current_user.id)
     db.add(db_budget)
     db.commit()
     db.refresh(db_budget)

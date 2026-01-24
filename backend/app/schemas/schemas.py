@@ -1,68 +1,28 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 
-# === 1. ENUMS ===
+# Enums
 class IncomeType(str, Enum):
     FIXED = "fixed"
     EXTRA = "extra"
-    
-    @classmethod
-    def _missing_(cls, value):
-        """Handle case-insensitive matching"""
-        if isinstance(value, str):
-            value = value.lower()
-            for member in cls:
-                if member.value == value:
-                    return member
-        return None
 
 class CardType(str, Enum):
     CREDIT = "credit"
     DEBIT = "debit"
     BANK = "bank"
-    
-    @classmethod
-    def _missing_(cls, value):
-        """Handle case-insensitive matching"""
-        if isinstance(value, str):
-            value = value.lower()
-            for member in cls:
-                if member.value == value:
-                    return member
-        return None
 
 class FrequencyType(str, Enum):
     MONTHLY = "monthly"
     WEEKLY = "weekly"
-    
-    @classmethod
-    def _missing_(cls, value):
-        """Handle case-insensitive matching"""
-        if isinstance(value, str):
-            value = value.lower()
-            for member in cls:
-                if member.value == value:
-                    return member
-        return None
 
 class UserRole(str, Enum):
     ADMIN = "admin"
     USER = "user"
     TEMP = "temp"
-    
-    @classmethod
-    def _missing_(cls, value):
-        """Handle case-insensitive matching"""
-        if isinstance(value, str):
-            value = value.lower()
-            for member in cls:
-                if member.value == value:
-                    return member
-        return None
 
-# === 2. USER SCHEMAS ===
+# User Schemas
 class UserBase(BaseModel):
     username: str
     name: str
@@ -89,6 +49,7 @@ class UserResponse(UserBase):
     onboarding_completed: bool
     profile_photo: Optional[str] = None
     created_at: datetime
+    
     class Config:
         from_attributes = True
 
@@ -96,7 +57,7 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
-# === 3. INCOME SCHEMAS ===
+# Income Schemas
 class IncomeBase(BaseModel):
     description: str
     amount: float
@@ -111,10 +72,11 @@ class IncomeResponse(IncomeBase):
     id: int
     user_id: int
     created_at: datetime
+    
     class Config:
         from_attributes = True
 
-# === 4. EXPENSE SCHEMAS ===
+# Expense Schemas
 class ExpenseBase(BaseModel):
     date: str
     description: str
@@ -140,10 +102,28 @@ class ExpenseResponse(ExpenseBase):
     id: int
     user_id: int
     created_at: datetime
+    
     class Config:
         from_attributes = True
 
-# === 5. INVOICE ITEM SCHEMAS (IMPORTANTE: VEM ANTES DE CARD) ===
+# Card Schemas
+class CardBase(BaseModel):
+    name: str
+    type: CardType
+    color: str
+
+class CardCreate(CardBase):
+    pass
+
+class CardResponse(CardBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+# Invoice Item Schemas
 class InstallmentInfo(BaseModel):
     current_installment: int
     total_installments: int
@@ -175,33 +155,11 @@ class InvoiceItemResponse(InvoiceItemBase):
     id: int
     card_id: int
     created_at: datetime
+    
     class Config:
         from_attributes = True
 
-# === 6. CARD SCHEMAS (AGORA PODE USAR InvoiceItemResponse) ===
-class CardBase(BaseModel):
-    name: str
-    type: CardType
-    color: str
-
-class CardCreate(CardBase):
-    pass
-
-class Card(CardBase):
-    id: int
-    user_id: int
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-    # AQUI: Lista de itens agora funciona porque InvoiceItemResponse já foi lido acima
-    invoice_items: List[InvoiceItemResponse] = [] 
-
-    class Config:
-        from_attributes = True
-
-class CardResponse(Card):
-    pass
-
-# === 7. BUDGET SCHEMAS ===
+# Budget Schemas
 class BudgetBase(BaseModel):
     category: str
     amount_limit: float
@@ -215,10 +173,11 @@ class BudgetResponse(BudgetBase):
     id: int
     user_id: int
     created_at: datetime
+    
     class Config:
         from_attributes = True
 
-# === 8. TOKEN SCHEMAS ===
+# Token Schemas
 class Token(BaseModel):
     access_token: str
     token_type: str
