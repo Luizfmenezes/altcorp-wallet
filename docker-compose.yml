@@ -46,15 +46,15 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-
-  # Frontend (React + Nginx)
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips '*'
+# Frontend (React + Nginx)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://192.168.15.5:8000/api/v1}
+        # Passa a variável do seu arquivo .env para o build do Vite
+        - VITE_API_URL=${VITE_API_URL}
     container_name: altcorp-wallet-frontend
     restart: unless-stopped
     ports:
@@ -64,8 +64,8 @@ services:
     depends_on:
       - backend
     environment:
-      - VITE_API_URL=${VITE_API_URL:-http://192.168.15.5:8000/api/v1}
-
+      # Mantém disponível também em tempo de execução
+      - VITE_API_URL=${VITE_API_URL}
 networks:
   wallet-network:
     driver: bridge

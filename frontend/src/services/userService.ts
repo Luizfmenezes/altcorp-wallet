@@ -20,7 +20,8 @@ export interface UserUpdate {
 
 class UserService {
   async getAllUsers(): Promise<User[]> {
-    const { data } = await api.get<User[]>('/users');
+    // Adicionada a barra no final '/users/'
+    const { data } = await api.get<User[]>('/users/'); 
     return data;
   }
 
@@ -30,7 +31,8 @@ class UserService {
   }
 
   async createUser(userData: UserCreate): Promise<User> {
-    const { data } = await api.post<User>('/users', userData);
+    // Adicionada a barra no final '/users/'
+    const { data } = await api.post<User>('/users/', userData);
     return data;
   }
 

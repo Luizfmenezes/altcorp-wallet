@@ -1,14 +1,16 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+// Esta linha agora lerá o que você configurou no seu .env da raiz
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
-// Create axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+// O restante do código (interceptors) permanece igual...
 
 // Add token to requests
 api.interceptors.request.use(

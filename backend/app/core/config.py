@@ -15,18 +15,21 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # CORS - Aceita múltiplas origens separadas por vírgula
-    ALLOWED_ORIGINS: str = "http://localhost,http://localhost:80,http://localhost:3000"
+    # CORS
+    ALLOWED_ORIGINS: str = "http://localhost,http://localhost:80,http://localhost:3000,http://localhost:8080"
     
-    # Domain (para produção)
+    # Domain
     DOMAIN: str = "localhost"
     
     def get_allowed_origins(self) -> List[str]:
         """Parse ALLOWED_ORIGINS string into list"""
+        if not self.ALLOWED_ORIGINS:
+            return []
         return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
     
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"  # <--- ESSA LINHA SALVA O SISTEMA
 
 settings = Settings()
