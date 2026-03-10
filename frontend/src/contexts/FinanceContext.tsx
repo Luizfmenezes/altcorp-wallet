@@ -8,6 +8,10 @@ export interface Income {
   type: 'fixed' | 'extra';
   month?: number;
   year?: number;
+  payDay?: number | null;
+  accountingMonth?: number | null;
+  accountingYear?: number | null;
+  isRecurring?: boolean;
 }
 
 export interface Expense {
@@ -50,7 +54,10 @@ export interface Card {
   name: string;
   type: 'credit' | 'debit' | 'bank';
   color: string;
+  closingDay?: number | null;
+  dueDay?: number | null;
   invoiceItems: InvoiceItem[];
+  paidInvoices?: Array<{ id: string; month: number; year: number }>;
 }
 
 interface FinanceContextType {
@@ -64,11 +71,13 @@ interface FinanceContextType {
   setSelectedMonth: (month: number) => void;
   setSelectedYear: (year: number) => void;
   addIncome: (income: Omit<Income, 'id'>) => Promise<void>;
+  updateIncome: (id: string, updates: Partial<Omit<Income, 'id'>>) => Promise<void>;
   removeIncome: (id: string) => Promise<void>;
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
   updateExpense: (id: string, updates: Partial<Omit<Expense, 'id'>>) => Promise<void>;
   removeExpense: (id: string) => Promise<void>;
   addCard: (card: Omit<Card, 'id' | 'invoiceItems'>) => Promise<void>;
+  updateCard: (id: string, updates: Partial<Omit<Card, 'id' | 'invoiceItems'>>) => Promise<void>;
   removeCard: (id: string) => Promise<void>;
   addInvoiceItem: (cardId: string, item: Omit<InvoiceItem, 'id'>, installments?: number) => Promise<void>;
   updateInvoiceItem: (cardId: string, itemId: string, updates: Partial<Omit<InvoiceItem, 'id'>>) => Promise<void>;
@@ -82,7 +91,8 @@ interface FinanceContextType {
   setBudget: (category: string, limit: number) => void;
   removeBudget: (category: string) => void;
   getBudgetStatus: (category: string) => { spent: number; limit: number; percentage: number };
-  checkRecurringExpenses: () => void;
+  checkRecurringExpenses: () => Promise<void>;
+  toggleInvoicePaid: (cardId: string, month: number, year: number) => Promise<void>;
   getTotalIncome: () => number;
   getTotalExpenses: () => number;
   getTotalDirectExpenses: () => number;
@@ -108,18 +118,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
-  const [people, setPeopleState] = useState<string[]>(() => {
-    // Load from localStorage on init
-    const saved = localStorage.getItem('altcorp_people');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return ['Eu'];
-      }
-    }
-    return ['Eu'];
-  });
+  const [people, setPeopleState] = useState<string[]>(['Eu']);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [lastRecurringCheck, setLastRecurringCheck] = useState<string>(
     localStorage.getItem('lastRecurringCheck') || ''
@@ -131,10 +130,11 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const [cards, setCards] = useState<Card[]>([]);
 
-  // Helper to update people with localStorage sync
+  // Helper to update people via API + localStorage fallback
   const setPeople = (newPeople: string[]) => {
     setPeopleState(newPeople);
     localStorage.setItem('altcorp_people', JSON.stringify(newPeople));
+    financeService.savePeople(newPeople).catch(() => { /* silent */ });
   };
 
   const addIncome = async (income: Omit<Income, 'id'>) => {
@@ -148,6 +148,13 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       await financeService.deleteIncome(id);
       setIncomes(prev => prev.filter(i => i.id !== id));
+    } catch { /* silent */ }
+  };
+
+  const updateIncome = async (id: string, updates: Partial<Omit<Income, 'id'>>) => {
+    try {
+      const updatedIncome = await financeService.updateIncome(id, updates);
+      setIncomes(prev => prev.map(inc => inc.id === id ? { ...inc, ...updatedIncome } : inc));
     } catch { /* silent */ }
   };
 
@@ -188,6 +195,13 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       await financeService.deleteCard(id);
       setCards(prev => prev.filter(c => c.id !== id));
+    } catch { /* silent */ }
+  };
+
+  const updateCard = async (id: string, updates: Partial<Omit<Card, 'id' | 'invoiceItems'>>) => {
+    try {
+      const updatedCard = await financeService.updateCard(id, updates);
+      setCards(prev => prev.map(c => c.id === id ? { ...c, ...updatedCard } : c));
     } catch { /* silent */ }
   };
 
@@ -283,16 +297,37 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const setInitialIncome = async (amount: number) => {
+    const now = new Date();
+    const month = now.getMonth() + 1; // 1-12
+    const year = now.getFullYear();
+
     try {
       const newIncome = await financeService.createIncome({
         description: 'Salário',
         amount,
         type: 'fixed',
+        month,
+        year,
+        payDay: null,
+        accountingMonth: month,
+        accountingYear: year,
+        isRecurring: true,
       });
       setIncomes([newIncome]);
     } catch {
       setIncomes([
-        { id: generateId(), description: 'Salário', amount, type: 'fixed' },
+        {
+          id: generateId(),
+          description: 'Salário',
+          amount,
+          type: 'fixed',
+          month,
+          year,
+          payDay: null,
+          accountingMonth: month,
+          accountingYear: year,
+          isRecurring: true,
+        },
       ]);
     }
   };
@@ -317,12 +352,21 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const getTotalIncome = () => {
+    // Filtra todas as rendas pelo mês/ano de contabilização
+    const displayMonth = selectedMonth + 1; // selectedMonth é 0-based, accounting_month é 1-based
+
     const fixedIncome = incomes
-      .filter(i => i.type === 'fixed')
+      .filter(i => i.type === 'fixed' && (
+        // Se tem accounting_month, usa ele; senão mantém o comportamento antigo (soma tudo)
+        i.accountingMonth ? (i.accountingMonth === displayMonth && i.accountingYear === selectedYear) : true
+      ))
       .reduce((sum, i) => sum + i.amount, 0);
     
     const extraIncome = incomes
-      .filter(i => i.type === 'extra' && i.month === selectedMonth && i.year === selectedYear)
+      .filter(i => i.type === 'extra' && (
+        i.accountingMonth ? (i.accountingMonth === displayMonth && i.accountingYear === selectedYear)
+        : (i.month === selectedMonth && i.year === selectedYear)
+      ))
       .reduce((sum, i) => sum + i.amount, 0);
     
     return fixedIncome + extraIncome;
@@ -432,81 +476,58 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     return { spent, limit: budget.limit, percentage };
   };
 
-  // Recurring Expenses Logic
-  const checkRecurringExpenses = () => {
+  // Recurring Expenses Logic — chama o backend para processar
+  const toggleInvoicePaid = async (cardId: string, month: number, year: number) => {
+    const card = cards.find(c => c.id === cardId);
+    if (!card) return;
+    const alreadyPaid = card.paidInvoices?.some(p => p.month === month && p.year === year);
+    try {
+      if (alreadyPaid) {
+        await financeService.unmarkInvoicePaid(cardId, month, year);
+        setCards(prev => prev.map(c => {
+          if (c.id !== cardId) return c;
+          return { ...c, paidInvoices: (c.paidInvoices ?? []).filter(p => !(p.month === month && p.year === year)) };
+        }));
+      } else {
+        const result = await financeService.markInvoicePaid(cardId, month, year);
+        setCards(prev => prev.map(c => {
+          if (c.id !== cardId) return c;
+          const existing = c.paidInvoices ?? [];
+          const alreadyInList = existing.some(p => p.month === month && p.year === year);
+          if (alreadyInList) return c;
+          return { ...c, paidInvoices: [...existing, { id: String(result.id), month, year }] };
+        }));
+      }
+    } catch (err) {
+      console.error('Erro ao alternar status de fatura paga:', err);
+    }
+  };
+
+  const checkRecurringExpenses = async () => {
     const today = new Date();
     const currentMonthYear = `${today.getFullYear()}-${today.getMonth()}`;
-    
-    // Check if we already processed this month
+
+    // Verifica se já processou este mês (cache local para não chamar toda hora)
     if (lastRecurringCheck === currentMonthYear) {
       return;
     }
 
-    // Get last month's date
-    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const lastMonthNum = lastMonth.getMonth();
-    const lastMonthYear = lastMonth.getFullYear();
-
-    // Find recurring expenses from last month
-    const recurringExpenses = expenses.filter(exp => {
-      const expDate = new Date(exp.date);
-      return (
-        exp.isRecurring &&
-        exp.frequency === 'monthly' &&
-        expDate.getMonth() === lastMonthNum &&
-        expDate.getFullYear() === lastMonthYear
-      );
-    });
-
-    // Clone them to current month
-    if (recurringExpenses.length > 0) {
-      const newExpenses = recurringExpenses.map(exp => {
-        const newDate = new Date(today.getFullYear(), today.getMonth(), new Date(exp.date).getDate());
-        return {
-          ...exp,
-          id: generateId(),
-          date: newDate.toISOString().split('T')[0],
-        };
-      });
-
-      setExpenses(prev => [...prev, ...newExpenses]);
-      
-      // Update last check
+    try {
+      const result = await financeService.processRecurring();
+      if (result.created_expenses > 0 || result.created_invoice_items > 0) {
+        // Recarrega os dados para pegar os novos itens criados
+        const [freshExpenses, freshCards] = await Promise.all([
+          financeService.getExpenses(),
+          financeService.getCards(),
+        ]);
+        setExpenses(freshExpenses);
+        setCards(freshCards);
+      }
       localStorage.setItem('lastRecurringCheck', currentMonthYear);
       setLastRecurringCheck(currentMonthYear);
+    } catch (err) {
+      console.error('Erro ao processar recorrências:', err);
     }
-
-    // Check recurring card invoice items (reuse same date variables)
-    cards.forEach(card => {
-      const recurringItems = card.invoiceItems.filter(item => {
-        const itemDate = new Date(item.date);
-        return (
-          item.isRecurring &&
-          item.frequency === 'monthly' &&
-          itemDate.getMonth() === lastMonthNum &&
-          itemDate.getFullYear() === lastMonthYear
-        );
-      });
-
-      if (recurringItems.length > 0) {
-        const newItems = recurringItems.map(item => {
-          const newDate = new Date(today.getFullYear(), today.getMonth(), new Date(item.date).getDate());
-          return {
-            ...item,
-            id: generateId(),
-            date: newDate.toISOString().split('T')[0],
-          };
-        });
-
-        // Add new recurring items to the card
-        const updatedCard = {
-          ...card,
-          invoiceItems: [...card.invoiceItems, ...newItems],
-        };
-
-        setCards(prev => prev.map(c => c.id === card.id ? updatedCard : c));
-      }
-    });
   };
 
   // Get previous month expenses for comparison
@@ -559,16 +580,13 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         });
     });
 
-    return Object.entries(categoryMap).map(([category, amount]) => ({
-      category,
-      amount,
-    }));
+    return Object.entries(categoryMap)
+      .filter(([category]) => !!category)
+      .map(([category, amount]) => ({
+        category,
+        amount,
+      }));
   };
-
-  // Check recurring expenses on mount
-  React.useEffect(() => {
-    checkRecurringExpenses();
-  }, []);
 
   // Function to load finance data (called after login)
   const loadFinanceData = async () => {
@@ -582,16 +600,43 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       setExpenses(loadedExpenses);
       setCards(loadedCards);
       
-      // Load people from localStorage
-      const savedPeople = localStorage.getItem('altcorp_people');
-      if (savedPeople) {
-        try {
-          const parsed = JSON.parse(savedPeople);
-          setPeopleState(parsed);
-        } catch {
-          setPeopleState(['Eu']);
+      // Carrega people do backend (fonte de verdade), com fallback para localStorage
+      try {
+        const backendPeople = await financeService.getPeople();
+        if (backendPeople && backendPeople.length > 0) {
+          setPeopleState(backendPeople);
+          localStorage.setItem('altcorp_people', JSON.stringify(backendPeople));
+        } else {
+          // Backend vazio: tenta migrar do localStorage para o backend
+          const savedPeople = localStorage.getItem('altcorp_people');
+          if (savedPeople) {
+            const parsed: string[] = JSON.parse(savedPeople);
+            if (parsed.length > 0) {
+              setPeopleState(parsed);
+              financeService.savePeople(parsed).catch(() => { /* silent */ });
+            }
+          }
+        }
+      } catch {
+        // fallback para localStorage
+        const savedPeople = localStorage.getItem('altcorp_people');
+        if (savedPeople) {
+          try { setPeopleState(JSON.parse(savedPeople)); } catch { /* silent */ }
         }
       }
+
+      // Processa recorrências de rendas para o mês atual
+      const currentMonth = new Date().getMonth() + 1; // 1-based
+      const currentYear = new Date().getFullYear();
+      try {
+        const newRecurring = await financeService.processRecurringIncomes(currentMonth, currentYear);
+        if (newRecurring.length > 0) {
+          setIncomes(prev => [...prev, ...newRecurring]);
+        }
+      } catch { /* silent */ }
+
+      // Processa recorrências após carregar dados
+      await checkRecurringExpenses();
     } catch { /* silent */ }
   };
 
@@ -614,11 +659,13 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       setSelectedMonth,
       setSelectedYear,
       addIncome,
+      updateIncome,
       removeIncome,
       addExpense,
       updateExpense,
       removeExpense,
       addCard,
+      updateCard,
       removeCard,
       addInvoiceItem,
       updateInvoiceItem,
@@ -633,6 +680,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       removeBudget,
       getBudgetStatus,
       checkRecurringExpenses,
+      toggleInvoicePaid,
       getTotalIncome,
       getTotalExpenses,
       getTotalDirectExpenses,

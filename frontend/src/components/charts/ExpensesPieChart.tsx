@@ -18,14 +18,18 @@ export const ExpensesPieChart: React.FC = () => {
 
   // Aggregate expenses by category
   const categoryTotals = cards.reduce((acc, card) => {
+    if (!card || !Array.isArray(card.invoiceItems)) return acc;
     card.invoiceItems.forEach((item) => {
-      acc[item.category] = (acc[item.category] || 0) + item.amount;
+      if (!item) return;
+      const cat = item.category || 'Outros';
+      acc[cat] = (acc[cat] || 0) + (item.amount || 0);
     });
     return acc;
   }, {} as Record<string, number>);
 
   const data = Object.entries(categoryTotals)
-    .map(([name, value]) => ({ name, value }))
+    .map(([name, value]) => ({ name, value: value as number }))
+    .filter(d => d.name && d.value > 0)
     .sort((a, b) => b.value - a.value);
 
   const formatCurrency = (value: number) => {

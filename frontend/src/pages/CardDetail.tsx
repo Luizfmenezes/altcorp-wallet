@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Trash2, Upload, CreditCard, Building2, Users, Pencil, 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -30,7 +31,7 @@ const YEARS = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 
 const CardDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { cards, people, addInvoiceItem, updateInvoiceItem, removeInvoiceItem, importCSV, addPerson } = useFinance();
+  const { cards, people, addInvoiceItem, updateInvoiceItem, removeInvoiceItem, importCSV, addPerson, updateCard, removeCard, toggleInvoicePaid } = useFinance();
   const { toast } = useToast();
 
   const card = cards.find((c) => c.id === id);
@@ -44,6 +45,20 @@ const CardDetail: React.FC = () => {
   const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
   const [newPersonName, setNewPersonName] = useState('');
   const [editingItem, setEditingItem] = useState<InvoiceItem | null>(null);
+
+  // Edit/Delete card states
+  const [isEditCardOpen, setIsEditCardOpen] = useState(false);
+  const [isDeleteCardOpen, setIsDeleteCardOpen] = useState(false);
+  const [editCardForm, setEditCardForm] = useState({ name: '', color: '', closingDay: '', dueDay: '' });
+
+  const CARD_COLORS = [
+    { name: 'Roxo', value: '#8B5CF6' },
+    { name: 'Azul', value: '#3B82F6' },
+    { name: 'Verde', value: '#22C55E' },
+    { name: 'Laranja', value: '#F97316' },
+    { name: 'Rosa', value: '#EC4899' },
+    { name: 'Cinza', value: '#6B7280' },
+  ];
   
   const [newItem, setNewItem] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -273,6 +288,38 @@ const CardDetail: React.FC = () => {
     }
   };
 
+  const openEditCard = () => {
+    if (!card) return;
+    setEditCardForm({
+      name: card.name,
+      color: card.color,
+      closingDay: card.closingDay ? String(card.closingDay) : '',
+      dueDay: card.dueDay ? String(card.dueDay) : '',
+    });
+    setIsEditCardOpen(true);
+  };
+
+  const handleEditCard = async () => {
+    if (!card || !editCardForm.name.trim()) return;
+    const parseDayField = (v: string) => { const n = Number.parseInt(v, 10); return n >= 1 && n <= 31 ? n : null; };
+    await updateCard(card.id, {
+      name: editCardForm.name.trim(),
+      color: editCardForm.color,
+      closingDay: parseDayField(editCardForm.closingDay),
+      dueDay: parseDayField(editCardForm.dueDay),
+    });
+    toast({ title: 'Sucesso', description: 'Cartão atualizado!' });
+    setIsEditCardOpen(false);
+  };
+
+  const handleDeleteCard = async () => {
+    if (!card) return;
+    await removeCard(card.id);
+    toast({ title: 'Removido', description: `${card.name} foi excluído.` });
+    setIsDeleteCardOpen(false);
+    navigate('/wallet');
+  };
+
   const handleCSVImport = (items: { date: string; description: string; category: string; amount: number; owner: string }[]) => {
     if (items.length > 0) {
       importCSV(card.id, items);
@@ -287,10 +334,11 @@ const CardDetail: React.FC = () => {
   const totalAmount = filteredItems.reduce((sum, item) => sum + item.amount, 0);
 
   return (
-    <div className="min-h-screen bg-background pb-8">
+    <>
+    <div className="min-h-screen bg-background pb-8 md:pt-16">
       {/* Header */}
       <header
-        className="text-white p-6 pb-8 rounded-b-3xl"
+        className="text-white p-6 pb-8 rounded-b-3xl md:rounded-none md:pt-8"
         style={{ backgroundColor: card.color }}
       >
         <div className="max-w-7xl mx-auto">
@@ -305,12 +353,53 @@ const CardDetail: React.FC = () => {
             </Button>
             <div className="flex-1">
               <h1 className="text-xl md:text-2xl font-bold">{card.name}</h1>
+              {card.type === 'credit' && (card.closingDay || card.dueDay) && (
+                <p className="text-white/70 text-xs mt-0.5">
+                  {card.closingDay ? `Fecha dia ${card.closingDay}` : ''}
+                  {card.closingDay && card.dueDay ? ' • ' : ''}
+                  {card.dueDay ? `Vence dia ${card.dueDay}` : ''}
+                </p>
+              )}
             </div>
+            {/* Edit / Delete card buttons */}
+            <button
+              type="button"
+              onClick={openEditCard}
+              className="p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition-colors"
+              title="Editar cartão"
+            >
+              <Pencil className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsDeleteCardOpen(true)}
+              className="p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition-colors"
+              title="Excluir cartão"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
             {getCardIcon(card.type)}
           </div>
           <div className="bg-white/20 rounded-2xl p-4 md:max-w-md">
             <p className="text-white/80 text-sm">Total da Fatura - {getMonthName(selectedMonth)}</p>
-            <p className="text-2xl md:text-3xl font-bold">{formatCurrency(totalAmount)}</p>
+            <div className="flex items-center justify-between gap-3 mt-1">
+              <p className="text-2xl md:text-3xl font-bold">{formatCurrency(totalAmount)}</p>
+              {card.type === 'credit' && (
+                <button
+                  type="button"
+                  onClick={() => toggleInvoicePaid(card.id, selectedMonth, selectedYear)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                    (card.paidInvoices ?? []).some(p => p.month === selectedMonth && p.year === selectedYear)
+                      ? 'bg-green-500/90 text-white'
+                      : 'bg-white/20 text-white/90 hover:bg-white/30'
+                  }`}
+                >
+                  {(card.paidInvoices ?? []).some(p => p.month === selectedMonth && p.year === selectedYear)
+                    ? '✓ Fatura Paga'
+                    : 'Marcar como Paga'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -808,6 +897,90 @@ const CardDetail: React.FC = () => {
         </section>
       </div>
     </div>
+
+      {/* Dialog — Editar Cartão */}
+      <Dialog open={isEditCardOpen} onOpenChange={(open) => { setIsEditCardOpen(open); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Cartão</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <Input
+              placeholder="Nome do cartão"
+              value={editCardForm.name}
+              onChange={(e) => setEditCardForm((prev) => ({ ...prev, name: e.target.value }))}
+              className="input-finance"
+            />
+            {card.type === 'credit' && (
+              <>
+                <Input
+                  type="number"
+                  min={1}
+                  max={31}
+                  placeholder="Dia de fechamento (ex: 6)"
+                  value={editCardForm.closingDay}
+                  onChange={(e) => setEditCardForm((prev) => ({ ...prev, closingDay: e.target.value }))}
+                  className="input-finance"
+                />
+                <Input
+                  type="number"
+                  min={1}
+                  max={31}
+                  placeholder="Dia de vencimento (ex: 15)"
+                  value={editCardForm.dueDay}
+                  onChange={(e) => setEditCardForm((prev) => ({ ...prev, dueDay: e.target.value }))}
+                  className="input-finance"
+                />
+              </>
+            )}
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">Cor</p>
+              <div className="flex gap-2 flex-wrap">
+                {CARD_COLORS.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => setEditCardForm((prev) => ({ ...prev, color: c.value }))}
+                    className={`w-10 h-10 rounded-xl transition-transform ${
+                      editCardForm.color === c.value ? 'scale-110 ring-2 ring-foreground' : ''
+                    }`}
+                    style={{ backgroundColor: c.value }}
+                  />
+                ))}
+              </div>
+            </div>
+            <Button onClick={handleEditCard} className="w-full h-12 rounded-xl">
+              Salvar Alterações
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* AlertDialog — Excluir Cartão */}
+      <AlertDialog open={isDeleteCardOpen} onOpenChange={setIsDeleteCardOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir cartão?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{card.name}</strong> será removido permanentemente
+              {card.invoiceItems.length > 0 && (
+                <> junto com <strong>{card.invoiceItems.length}</strong> itens de fatura</>
+              )}.
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCard}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 

@@ -69,11 +69,26 @@ class IncomeBase(BaseModel):
     description: str
     amount: float
     type: IncomeType
+    pay_day: Optional[int] = None
     month: Optional[int] = None
     year: Optional[int] = None
+    accounting_month: Optional[int] = None
+    accounting_year: Optional[int] = None
+    is_recurring: bool = False
 
 class IncomeCreate(IncomeBase):
     pass
+
+class IncomeUpdate(BaseModel):
+    description: Optional[str] = None
+    amount: Optional[float] = None
+    type: Optional[IncomeType] = None
+    pay_day: Optional[int] = None
+    month: Optional[int] = None
+    year: Optional[int] = None
+    accounting_month: Optional[int] = None
+    accounting_year: Optional[int] = None
+    is_recurring: Optional[bool] = None
 
 class IncomeResponse(IncomeBase):
     id: int
@@ -118,9 +133,18 @@ class CardBase(BaseModel):
     name: str
     type: CardType
     color: str
+    closing_day: Optional[int] = None  # Dia de fechamento da fatura (1-31)
+    due_day: Optional[int] = None      # Dia de vencimento/pagamento (1-31)
 
 class CardCreate(CardBase):
     pass
+
+class CardUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[CardType] = None
+    color: Optional[str] = None
+    closing_day: Optional[int] = None
+    due_day: Optional[int] = None
 
 # Invoice Item Schemas
 class InstallmentInfo(BaseModel):
@@ -159,11 +183,22 @@ class InvoiceItemResponse(InvoiceItemBase):
         from_attributes = True
 
 # CardResponse needs to be defined AFTER InvoiceItemResponse
+class PaidInvoiceResponse(BaseModel):
+    id: int
+    month: int
+    year: int
+    
+    class Config:
+        from_attributes = True
+
 class CardResponse(CardBase):
     id: int
     user_id: int
+    closing_day: Optional[int] = None
+    due_day: Optional[int] = None
     created_at: datetime
     invoice_items: List[InvoiceItemResponse] = []
+    paid_invoices: List[PaidInvoiceResponse] = []
     
     class Config:
         from_attributes = True

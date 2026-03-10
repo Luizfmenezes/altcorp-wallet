@@ -4,10 +4,11 @@ from typing import List
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from app.database.session import get_db
-from app.database.models import Card, InvoiceItem, User
+from app.database.models import Card, InvoiceItem, User, PaidInvoice
 from app.schemas.schemas import (
-    CardCreate, CardResponse, 
-    InvoiceItemCreate, InvoiceItemResponse, InvoiceItemUpdate
+    CardCreate, CardUpdate, CardResponse,
+    InvoiceItemCreate, InvoiceItemResponse, InvoiceItemUpdate,
+    PaidInvoiceResponse
 )
 from app.core.dependencies import get_current_user
 
@@ -52,7 +53,33 @@ def create_card(
     db.add(db_card)
     db.commit()
     db.refresh(db_card)
+    # Recarrega com invoice_items para garantir que a relação está disponível
+    db_card = db.query(Card).options(joinedload(Card.invoice_items)).filter(Card.id == db_card.id).first()
     return db_card
+
+@router.put("/{card_id}", response_model=CardResponse)
+def update_card(
+    card_id: int,
+    card_update: CardUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update a card"""
+    card = db.query(Card).options(joinedload(Card.invoice_items)).filter(
+        Card.id == card_id,
+        Card.user_id == current_user.id
+    ).first()
+    
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    
+    for key, value in card_update.dict(exclude_unset=True).items():
+        setattr(card, key, value)
+    
+    db.commit()
+    # Recarrega com invoice_items para garantir que a relação está disponível
+    card = db.query(Card).options(joinedload(Card.invoice_items)).filter(Card.id == card_id).first()
+    return card
 
 @router.delete("/{card_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_card(
@@ -230,4 +257,77 @@ def delete_invoice_item(
     
     db.delete(item)
     db.commit()
+    return None
+
+
+# Paid Invoices endpoints
+@router.post("/{card_id}/paid-invoices", response_model=PaidInvoiceResponse, status_code=status.HTTP_201_CREATED)
+def mark_invoice_paid(
+    card_id: int,
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Mark a card invoice month as paid"""
+    card = db.query(Card).filter(
+        Card.id == card_id,
+        Card.user_id == current_user.id
+    ).first()
+
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    month = data.get("month")
+    year = data.get("year")
+
+    if month is None or year is None:
+        raise HTTPException(status_code=400, detail="month and year are required")
+
+    # Return existing record if already marked as paid
+    existing = db.query(PaidInvoice).filter(
+        PaidInvoice.card_id == card_id,
+        PaidInvoice.month == month,
+        PaidInvoice.year == year
+    ).first()
+    if existing:
+        return existing
+
+    paid = PaidInvoice(
+        card_id=card_id,
+        user_id=current_user.id,
+        month=month,
+        year=year
+    )
+    db.add(paid)
+    db.commit()
+    db.refresh(paid)
+    return paid
+
+
+@router.delete("/{card_id}/paid-invoices/{month}/{year}", status_code=status.HTTP_204_NO_CONTENT)
+def unmark_invoice_paid(
+    card_id: int,
+    month: int,
+    year: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Unmark a card invoice month as paid"""
+    card = db.query(Card).filter(
+        Card.id == card_id,
+        Card.user_id == current_user.id
+    ).first()
+
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    paid = db.query(PaidInvoice).filter(
+        PaidInvoice.card_id == card_id,
+        PaidInvoice.month == month,
+        PaidInvoice.year == year
+    ).first()
+
+    if paid:
+        db.delete(paid)
+        db.commit()
     return None

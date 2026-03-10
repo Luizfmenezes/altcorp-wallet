@@ -31,6 +31,10 @@ CREATE TABLE IF NOT EXISTS incomes (
     type income_type NOT NULL,
     month INTEGER,
     year INTEGER,
+    pay_day INTEGER,
+    accounting_month INTEGER,
+    accounting_year INTEGER,
+    is_recurring BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -55,6 +59,7 @@ CREATE TABLE IF NOT EXISTS cards (
     name VARCHAR(255) NOT NULL,
     type card_type NOT NULL,
     color VARCHAR(50) NOT NULL,
+    due_day INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
