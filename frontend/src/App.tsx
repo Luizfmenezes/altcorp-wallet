@@ -16,6 +16,8 @@ import Wallet from "./pages/Wallet";
 import CardDetail from "./pages/CardDetail";
 import Settings from "./pages/Settings";
 import UserManagement from "./pages/UserManagement";
+import History from "./pages/History";
+import MonthlyAnalysisPage from "./pages/MonthlyAnalysisPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -160,6 +162,22 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <UserManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/history"
+          element={
+            <ProtectedRoute>
+              <History />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/monthly-analysis"
+          element={
+            <ProtectedRoute>
+              <MonthlyAnalysisPage />
             </ProtectedRoute>
           }
         />

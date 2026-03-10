@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, MessageCircle, Bell, Settings, CreditCard, Building2, ChevronRight } from 'lucide-react';
+import { Eye, EyeOff, MessageCircle, Bell, CreditCard, Building2, ChevronRight, BarChart3, ScrollText } from 'lucide-react';
 import { BottomNav } from '@/components/BottomNav';
-import { MonthlyAnalysis } from '@/components/MonthlyAnalysis';
 import { useFinance, getMonthName } from '@/contexts/FinanceContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
 const Dashboard: React.FC = () => {
-  const { cards, getTotalIncome, getTotalExpenses, getBalance } = useFinance();
+  const { cards, getTotalIncome, getTotalExpenses, getBalance, selectedMonth, selectedYear } = useFinance();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [showBalance, setShowBalance] = useState(true);
@@ -41,18 +40,13 @@ const Dashboard: React.FC = () => {
     const card = cards.find(c => c.id === cardId);
     if (!card) return 0;
     
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    
     const cardExpenses = card.invoiceItems
       .filter(item => {
         const itemDate = new Date(item.date);
-        return itemDate.getMonth() === currentMonth && itemDate.getFullYear() === currentYear;
+        return itemDate.getMonth() === selectedMonth && itemDate.getFullYear() === selectedYear;
       })
       .reduce((sum, item) => sum + item.amount, 0);
     
-    // For credit cards, show negative (amount owed)
-    // For bank accounts, show positive balance (simulated)
     if (card.type === 'bank') {
       return totalIncome / cards.length - cardExpenses;
     }
@@ -80,85 +74,71 @@ const Dashboard: React.FC = () => {
     );
   };
 
+  const currentMonthName = getMonthName(selectedMonth);
+
   return (
-    <div className="min-h-screen bg-background pb-24">
-      {/* Green Gradient Header */}
+    <div className="min-h-screen bg-background pb-24 md:pt-16 md:pb-8">
+      {/* Blue Gradient Header */}
       <motion.header 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-blue-600 to-sky-500 text-white px-5 pt-12 pb-8 rounded-b-[2rem]"
+        className="bg-gradient-to-br from-blue-600 to-sky-500 text-white px-5 pt-12 pb-8 rounded-b-[2rem] md:rounded-none md:pt-8"
       >
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            {/* Avatar */}
-            <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center overflow-hidden border-2 border-white/30">
-              {user?.profile_photo ? (
-                <img src={user.profile_photo} alt="Foto de perfil" className="w-full h-full object-cover" />
-              ) : user?.avatar ? (
-                <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-lg font-semibold text-white">
-                  {getFirstName().charAt(0).toUpperCase()}
-                </span>
-              )}
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              {/* Avatar */}
+              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center overflow-hidden border-2 border-white/30">
+                {user?.profile_photo ? (
+                  <img src={user.profile_photo} alt="Foto de perfil" className="w-full h-full object-cover" />
+                ) : user?.avatar ? (
+                  <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-lg font-semibold text-white">
+                    {getFirstName().charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              {/* Greeting */}
+              <div>
+                <p className="text-white/80 text-sm">{getGreeting()},</p>
+                <p className="text-white font-semibold text-lg">{getFirstName()}</p>
+              </div>
             </div>
-            {/* Greeting */}
-            <div>
-              <p className="text-white/80 text-sm">{getGreeting()},</p>
-              <p className="text-white font-semibold text-lg">{getFirstName()}</p>
-            </div>
-          </div>
           
-          {/* Action Icons */}
-          <div className="flex items-center gap-2">
-            <button className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <MessageCircle className="w-5 h-5 text-white" />
-            </button>
-            <button className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <Bell className="w-5 h-5 text-white" />
-            </button>
-          </div>
+            {/* Action Icons */}
+            <div className="flex items-center gap-2">
+              <button className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <MessageCircle className="w-5 h-5 text-white" />
+              </button>
+              <button className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Bell className="w-5 h-5 text-white" />
+              </button>
+            </div>
         </div>
 
-        {/* Quick Actions Card */}
+        {/* Cards Bar + Análise Mensal */}
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 flex items-center justify-between"
         >
-          <div className="flex items-center gap-3">
-            <div className="flex -space-x-2">
-              {cards.slice(0, 3).map((card, index) => (
-                <div 
-                  key={card.id}
-                  className="w-8 h-8 rounded-lg border-2 border-white/50 flex items-center justify-center"
-                  style={{ backgroundColor: card.color, zIndex: 3 - index }}
-                >
-                  <CreditCard className="w-4 h-4 text-white" />
-                </div>
-              ))}
-              {cards.length > 3 && (
-                <div className="w-8 h-8 rounded-lg bg-white/30 border-2 border-white/50 flex items-center justify-center text-xs font-medium text-white">
-                  +{cards.length - 3}
-                </div>
-              )}
-            </div>
-            <span className="text-white/90 text-sm font-medium">
-              {cards.length} {cards.length === 1 ? 'cartão disponível' : 'cartões disponíveis'}
-            </span>
-          </div>
           <button 
-            onClick={() => navigate('/wallet')}
-            className="text-white text-sm font-semibold hover:underline"
+            onClick={() => navigate('/monthly-analysis')}
+            className="w-full flex items-center justify-center gap-2 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-2xl p-4 transition-colors"
           >
-            Visualizar
+            <BarChart3 className="w-5 h-5 text-white" />
+            <span className="text-white text-sm font-semibold">Análise Mensal</span>
           </button>
         </motion.div>
+        </div>
       </motion.header>
 
       {/* Main Content */}
-      <div className="px-5 -mt-4 space-y-6">
+      <div className="px-5 md:px-6 lg:px-8 -mt-4 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Coluna esquerda: Saldo + Stats */}
+          <div className="lg:col-span-2 space-y-6">
         {/* General Balance Card */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -167,7 +147,10 @@ const Dashboard: React.FC = () => {
           className="bg-card rounded-2xl p-5 shadow-lg border border-border/50"
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="text-muted-foreground text-sm">Saldo geral</span>
+            <div>
+              <span className="text-muted-foreground text-xs uppercase tracking-wider">Saldo geral</span>
+              <p className="text-primary text-sm font-semibold -mt-0.5">{currentMonthName} {selectedYear}</p>
+            </div>
             <button 
               onClick={() => setShowBalance(!showBalance)}
               className="text-muted-foreground hover:text-foreground transition-colors"
@@ -184,19 +167,13 @@ const Dashboard: React.FC = () => {
           </motion.p>
         </motion.div>
 
-        {/* Quick Stats - Moved Before Accounts */}
+        {/* Quick Stats */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
           className="space-y-3"
         >
-          {/* Month Indicator */}
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground">Resumo de</p>
-            <p className="text-lg font-bold text-foreground">{getMonthName(new Date().getMonth())} {new Date().getFullYear()}</p>
-          </div>
-          
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-card rounded-2xl p-4 border border-border/50">
               <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1">Receitas</p>
@@ -212,10 +189,22 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Monthly Analysis Component */}
-          <MonthlyAnalysis />
+          {/* Botão Histórico de Saldos / Extrato */}
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            onClick={() => navigate('/history')}
+            className="w-full h-12 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-700 hover:to-sky-600 text-white rounded-xl font-semibold shadow-md hover:shadow-lg transition-all"
+          >
+            <ScrollText className="w-5 h-5" />
+            Histórico de Saldos / Extrato
+          </motion.button>
         </motion.div>
+        </div>
 
+          {/* Coluna direita: Minhas Contas */}
+          <div className="space-y-4">
         {/* My Accounts Section */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -226,7 +215,7 @@ const Dashboard: React.FC = () => {
           <h2 className="text-lg font-semibold text-foreground">Minhas contas</h2>
           
           <div className="bg-card rounded-2xl border border-border/50 divide-y divide-border/50 overflow-hidden">
-            {cards.map((card, index) => {
+            {cards.filter(card => card && card.id).map((card, index) => {
               const balance = getCardBalance(card.id);
               return (
                 <motion.button
@@ -239,7 +228,7 @@ const Dashboard: React.FC = () => {
                 >
                   <div className="flex items-center gap-3">
                     {getCardIcon(card.type, card.color)}
-                    <span className="font-medium text-foreground">{card.name}</span>
+                    <span className="font-medium text-foreground">{card.name ?? '—'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`font-semibold ${balance >= 0 ? 'text-success' : 'text-destructive'}`}>
@@ -263,6 +252,8 @@ const Dashboard: React.FC = () => {
             Gerenciar contas
           </motion.button>
         </motion.div>
+          </div>
+        </div>
       </div>
 
       <BottomNav />

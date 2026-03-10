@@ -56,6 +56,33 @@ def complete_onboarding(
             detail=f"Error completing onboarding: {str(e)}"
         )
 
+@router.get("/me/people")
+def get_my_people(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get people list for current user"""
+    people = current_user.people or ['Eu']
+    return {"people": people}
+
+@router.put("/me/people")
+def update_my_people(
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update people list for current user"""
+    people = data.get("people", ['Eu'])
+    if not isinstance(people, list):
+        people = ['Eu']
+    # Garante que 'Eu' sempre está presente
+    if 'Eu' not in people:
+        people = ['Eu'] + people
+    current_user.people = people
+    db.commit()
+    db.refresh(current_user)
+    return {"people": current_user.people}
+
 @router.get("/", response_model=List[UserResponse])
 def list_users(
     skip: int = 0,
@@ -89,6 +116,11 @@ def create_user(
     db: Session = Depends(get_db)
 ):
     """Create new user (Admin only)"""
+    # Normalize username and email
+    user_data.username = user_data.username.strip().lower()
+    if user_data.email:
+        user_data.email = user_data.email.strip().lower()
+
     # Check if username already exists
     existing_user = db.query(User).filter(User.username == user_data.username).first()
     if existing_user:

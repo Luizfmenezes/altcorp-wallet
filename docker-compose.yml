@@ -5,6 +5,7 @@ services:
     container_name: altcorp-wallet-db
     restart: unless-stopped
     environment:
+      TZ: America/Sao_Paulo
       POSTGRES_USER: ${POSTGRES_USER:-walletuser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-walletpass123}
       POSTGRES_DB: ${POSTGRES_DB:-altcorp_wallet}
@@ -29,6 +30,7 @@ services:
     container_name: altcorp-wallet-backend
     restart: unless-stopped
     environment:
+      TZ: America/Sao_Paulo
       DATABASE_URL: postgresql://${POSTGRES_USER:-walletuser}:${POSTGRES_PASSWORD:-walletpass123}@database:5432/${POSTGRES_DB:-altcorp_wallet}
       API_HOST: 0.0.0.0
       API_PORT: 8000
@@ -64,8 +66,8 @@ services:
     depends_on:
       - backend
     environment:
-      # Mantém disponível também em tempo de execução
-      - VITE_API_URL=${VITE_API_URL}
+      TZ: America/Sao_Paulo
+      VITE_API_URL: ${VITE_API_URL}
 networks:
   wallet-network:
     driver: bridge

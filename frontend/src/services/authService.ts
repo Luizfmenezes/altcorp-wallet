@@ -45,6 +45,13 @@ class AuthService {
     
     const user = await this.getCurrentUser();
     localStorage.setItem('user', JSON.stringify(user));
+
+    // Salvar dados do último login para exibir na tela de login mesmo após logout
+    localStorage.setItem('lastLoginUser', JSON.stringify({
+      username: user.username,
+      name: user.name,
+      profile_photo: user.profile_photo || null,
+    }));
     
     return user;
   }
@@ -98,6 +105,15 @@ class AuthService {
   getUser(): User | null {
     const userStr = localStorage.getItem('user');
     return userStr ? JSON.parse(userStr) : null;
+  }
+
+  getLastLoginUser(): { username: string; name: string; profile_photo: string | null } | null {
+    const str = localStorage.getItem('lastLoginUser');
+    return str ? JSON.parse(str) : null;
+  }
+
+  clearLastLoginUser(): void {
+    localStorage.removeItem('lastLoginUser');
   }
 
   isAuthenticated(): boolean {

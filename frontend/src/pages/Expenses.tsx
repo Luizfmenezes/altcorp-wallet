@@ -95,10 +95,11 @@ const Expenses: React.FC = () => {
 
   // Group expenses by category
   const expensesByCategory = sortedExpenses.reduce((acc, expense) => {
-    if (!acc[expense.category]) {
-      acc[expense.category] = [];
+    const cat = expense.category || 'Outros';
+    if (!acc[cat]) {
+      acc[cat] = [];
     }
-    acc[expense.category].push(expense);
+    acc[cat].push(expense);
     return acc;
   }, {} as { [key: string]: typeof sortedExpenses });
 
@@ -243,7 +244,7 @@ const Expenses: React.FC = () => {
       <header className="bg-destructive text-destructive-foreground p-6 pb-8 rounded-b-3xl md:rounded-none">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-xl md:text-2xl font-bold text-center tracking-wide mb-4">
-            GASTOS DO MÊS
+            GASTOS AVULSOS 
           </h1>
           
           {/* Month/Year Navigation with Arrows */}
@@ -276,7 +277,7 @@ const Expenses: React.FC = () => {
       </header>
 
       {/* Content */}
-      <div className="px-4 md:px-6 lg:px-8 -mt-4 max-w-4xl mx-auto">
+      <div className="px-4 md:px-6 lg:px-8 -mt-4 max-w-7xl mx-auto">
         {/* View Mode Toggle */}
         <motion.div 
           initial={{ opacity: 0, y: 10 }}

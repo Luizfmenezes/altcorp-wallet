@@ -121,7 +121,7 @@
   }
 
   .floating-button {
-    @apply fixed bottom-24 right-4 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-xl flex items-center justify-center transition-transform duration-200 hover:scale-105 active:scale-95;
+    @apply fixed bottom-24 right-4 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-xl flex items-center justify-center transition-transform duration-200 hover:scale-105 active:scale-95 md:bottom-8 md:right-8;
   }
 
   .input-finance {

@@ -43,6 +43,7 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     onboarding_completed = Column(Boolean, default=False, nullable=False)
     profile_photo = Column(String, nullable=True)  # Base64 encoded image
+    people = Column(JSON, nullable=True, default=list)  # Lista de pessoas do usuário
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -51,6 +52,7 @@ class User(Base):
     expenses = relationship("Expense", back_populates="user", cascade="all, delete-orphan")
     cards = relationship("Card", back_populates="user", cascade="all, delete-orphan")
     budgets = relationship("Budget", back_populates="user", cascade="all, delete-orphan")
+    paid_invoices = relationship("PaidInvoice", back_populates="user")
 
 class Income(Base):
     __tablename__ = "incomes"
@@ -60,8 +62,12 @@ class Income(Base):
     description = Column(String, nullable=False)
     amount = Column(Float, nullable=False)
     type = Column(IncomeTypeEnum, nullable=False)
-    month = Column(Integer, nullable=True)
-    year = Column(Integer, nullable=True)
+    pay_day = Column(Integer, nullable=True)          # Dia do pagamento (1-31)
+    month = Column(Integer, nullable=True)             # Mês do pagamento (0-11) - quando recebe
+    year = Column(Integer, nullable=True)              # Ano do pagamento
+    accounting_month = Column(Integer, nullable=True)  # Mês que contabiliza (0-11)
+    accounting_year = Column(Integer, nullable=True)   # Ano que contabiliza
+    is_recurring = Column(Boolean, default=False)      # Se repete todo mês
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
@@ -92,11 +98,14 @@ class Card(Base):
     name = Column(String, nullable=False)
     type = Column(CardTypeEnum, nullable=False)
     color = Column(String, nullable=False)
+    closing_day = Column(Integer, nullable=True)  # Dia de fechamento da fatura (1-31)
+    due_day = Column(Integer, nullable=True)       # Dia de vencimento/pagamento (1-31)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
     user = relationship("User", back_populates="cards")
     invoice_items = relationship("InvoiceItem", back_populates="card", cascade="all, delete-orphan")
+    paid_invoices = relationship("PaidInvoice", back_populates="card", cascade="all, delete-orphan")
 
 class InvoiceItem(Base):
     __tablename__ = "invoice_items"
@@ -115,6 +124,20 @@ class InvoiceItem(Base):
     
     # Relationships
     card = relationship("Card", back_populates="invoice_items")
+
+class PaidInvoice(Base):
+    __tablename__ = "paid_invoices"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    card_id = Column(Integer, ForeignKey("cards.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    month = Column(Integer, nullable=False)   # 0-11
+    year = Column(Integer, nullable=False)
+    paid_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    card = relationship("Card", back_populates="paid_invoices")
+    user = relationship("User", back_populates="paid_invoices")
 
 class Budget(Base):
     __tablename__ = "budgets"

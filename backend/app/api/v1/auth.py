@@ -16,8 +16,9 @@ def login(
     db: Session = Depends(get_db)
 ):
     """Login with username and password"""
-    # Find user by username (OAuth2 uses 'username' field)
-    user = db.query(User).filter(User.username == form_data.username).first()
+    # Normalize username: case-insensitive + trim
+    normalized_username = form_data.username.strip().lower()
+    user = db.query(User).filter(User.username == normalized_username).first()
     
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
@@ -50,6 +51,11 @@ def register(
     db: Session = Depends(get_db)
 ):
     """Register new user - ONLY allowed when database is empty (first user)"""
+    # Normalize username
+    user_data.username = user_data.username.strip().lower()
+    if user_data.email:
+        user_data.email = user_data.email.strip().lower()
+
     # Check if any users exist
     user_count = db.query(User).count()
     

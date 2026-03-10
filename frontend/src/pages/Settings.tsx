@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Moon, Sun, LogOut, Palette, Users, Plus, Trash2, Camera, Save, Shield } from 'lucide-react';
+import { User, Moon, Sun, LogOut, Palette, Users, Plus, Trash2, Camera, Save, Shield, ImageIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,9 @@ const Settings: React.FC = () => {
   const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
   const [newPersonName, setNewPersonName] = useState('');
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isPhotoMenuOpen, setIsPhotoMenuOpen] = useState(false);
+  const cameraInputRef = React.useRef<HTMLInputElement>(null);
+  const galleryInputRef = React.useRef<HTMLInputElement>(null);
   
   // Profile edit state
   const [profileFirstName, setProfileFirstName] = useState('');
@@ -110,7 +112,17 @@ const Settings: React.FC = () => {
   };
 
   const handlePhotoClick = () => {
-    fileInputRef.current?.click();
+    setIsPhotoMenuOpen(true);
+  };
+
+  const handleCameraClick = () => {
+    setIsPhotoMenuOpen(false);
+    setTimeout(() => cameraInputRef.current?.click(), 100);
+  };
+
+  const handleGalleryClick = () => {
+    setIsPhotoMenuOpen(false);
+    setTimeout(() => galleryInputRef.current?.click(), 100);
   };
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -193,12 +205,10 @@ const Settings: React.FC = () => {
           {/* Avatar */}
           <div className="flex justify-center mb-6">
             <div className="relative">
-              <div 
-                role="button"
-                tabIndex={0}
+              <button
+                type="button"
                 className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-primary/10 flex items-center justify-center border-4 border-primary/20 overflow-hidden cursor-pointer"
                 onClick={handlePhotoClick}
-                onKeyDown={(e) => e.key === 'Enter' && handlePhotoClick()}
               >
                 {user?.profile_photo ? (
                   <img 
@@ -209,21 +219,63 @@ const Settings: React.FC = () => {
                 ) : (
                   <User className="w-12 h-12 md:w-14 md:h-14 text-primary" />
                 )}
-              </div>
+              </button>
               <button 
+                type="button"
                 onClick={handlePhotoClick}
                 disabled={isUploadingPhoto}
                 className="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 <Camera className="w-4 h-4 text-primary-foreground" />
               </button>
+
+              {/* Input câmera (capture=environment abre câmera traseira em mobile) */}
               <input
-                ref={fileInputRef}
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhotoChange}
+                className="hidden"
+              />
+              {/* Input galeria (sem capture = abre seletor de arquivos/galeria) */}
+              <input
+                ref={galleryInputRef}
                 type="file"
                 accept="image/*"
                 onChange={handlePhotoChange}
                 className="hidden"
               />
+
+              {/* Menu de escolha: Câmera / Galeria */}
+              {isPhotoMenuOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Fechar menu"
+                    className="fixed inset-0 z-40 cursor-default bg-transparent border-none"
+                    onClick={() => setIsPhotoMenuOpen(false)}
+                  />
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[180px] animate-fade-in">
+                    <button
+                      type="button"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors"
+                      onClick={handleCameraClick}
+                    >
+                      <Camera className="w-4 h-4 text-primary" />
+                      <span>Tirar foto</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted transition-colors border-t border-border"
+                      onClick={handleGalleryClick}
+                    >
+                      <ImageIcon className="w-4 h-4 text-primary" />
+                      <span>Galeria</span>
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
           

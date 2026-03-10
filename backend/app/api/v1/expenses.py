@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import date, timedelta
 from app.database.session import get_db
-from app.database.models import Expense, User
+from app.database.models import Expense, User, InvoiceItem, Card
 from app.schemas.schemas import ExpenseCreate, ExpenseResponse, ExpenseUpdate
 from app.core.dependencies import get_current_user
 
@@ -100,3 +101,154 @@ def delete_expense(expense_id: int, current_user: User = Depends(get_current_use
     db.delete(expense)
     db.commit()
     return None
+
+
+@router.post("/process-recurring")
+def process_recurring(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Processa despesas e itens de fatura recorrentes.
+    Copia itens marcados como is_recurring=True + frequency='monthly' do mês anterior
+    para o mês atual, evitando duplicatas.
+    """
+    today = date.today()
+    cur_year = today.year
+    cur_month = today.month
+
+    # Mês anterior
+    first_of_month = date(cur_year, cur_month, 1)
+    last_month_date = first_of_month - timedelta(days=1)
+    prev_year = last_month_date.year
+    prev_month = last_month_date.month
+
+    created_expenses = 0
+    created_items = 0
+
+    # --- 1) Despesas recorrentes ---
+    recurring_expenses = (
+        db.query(Expense)
+        .filter(
+            Expense.user_id == current_user.id,
+            Expense.is_recurring.is_(True),
+            Expense.frequency == "monthly",
+        )
+        .all()
+    )
+
+    # Filtrar somente as do mês anterior (date é string "YYYY-MM-DD")
+    prev_prefix = f"{prev_year}-{prev_month:02d}-"
+    cur_prefix = f"{cur_year}-{cur_month:02d}-"
+
+    prev_month_expenses = [e for e in recurring_expenses if e.date.startswith(prev_prefix)]
+
+    # Despesas já existentes no mês atual (para evitar duplicatas)
+    existing_current = (
+        db.query(Expense)
+        .filter(
+            Expense.user_id == current_user.id,
+            Expense.is_recurring.is_(True),
+        )
+        .all()
+    )
+    existing_keys = {
+        (e.description, e.category, e.amount, e.owner)
+        for e in existing_current
+        if e.date.startswith(cur_prefix)
+    }
+
+    for exp in prev_month_expenses:
+        key = (exp.description, exp.category, exp.amount, exp.owner)
+        if key in existing_keys:
+            continue
+        # Cria cópia no mês atual mantendo o mesmo dia
+        try:
+            day = int(exp.date.split("-")[2])
+        except (IndexError, ValueError):
+            day = 1
+        # Ajusta dia para meses com menos dias
+        import calendar
+        max_day = calendar.monthrange(cur_year, cur_month)[1]
+        day = min(day, max_day)
+        new_date = f"{cur_year}-{cur_month:02d}-{day:02d}"
+
+        new_expense = Expense(
+            user_id=current_user.id,
+            date=new_date,
+            description=exp.description,
+            category=exp.category,
+            amount=exp.amount,
+            owner=exp.owner,
+            is_recurring=True,
+            frequency=exp.frequency,
+        )
+        db.add(new_expense)
+        existing_keys.add(key)
+        created_expenses += 1
+
+    # --- 2) Itens de fatura recorrentes ---
+    user_cards = db.query(Card).filter(Card.user_id == current_user.id).all()
+
+    for card in user_cards:
+        recurring_items = (
+            db.query(InvoiceItem)
+            .filter(
+                InvoiceItem.card_id == card.id,
+                InvoiceItem.is_recurring.is_(True),
+                InvoiceItem.frequency == "monthly",
+            )
+            .all()
+        )
+
+        prev_items = [i for i in recurring_items if i.date.startswith(prev_prefix)]
+
+        existing_cur_items = (
+            db.query(InvoiceItem)
+            .filter(
+                InvoiceItem.card_id == card.id,
+                InvoiceItem.is_recurring.is_(True),
+            )
+            .all()
+        )
+        existing_item_keys = {
+            (i.description, i.category, i.amount, i.owner)
+            for i in existing_cur_items
+            if i.date.startswith(cur_prefix)
+        }
+
+        for item in prev_items:
+            key = (item.description, item.category, item.amount, item.owner)
+            if key in existing_item_keys:
+                continue
+            try:
+                day = int(item.date.split("-")[2])
+            except (IndexError, ValueError):
+                day = 1
+            import calendar
+            max_day = calendar.monthrange(cur_year, cur_month)[1]
+            day = min(day, max_day)
+            new_date = f"{cur_year}-{cur_month:02d}-{day:02d}"
+
+            new_item = InvoiceItem(
+                card_id=card.id,
+                date=new_date,
+                description=item.description,
+                category=item.category,
+                amount=item.amount,
+                owner=item.owner,
+                is_recurring=True,
+                frequency=item.frequency,
+            )
+            db.add(new_item)
+            existing_item_keys.add(key)
+            created_items += 1
+
+    db.commit()
+
+    return {
+        "processed": True,
+        "created_expenses": created_expenses,
+        "created_invoice_items": created_items,
+        "month": f"{cur_year}-{cur_month:02d}",
+    }
