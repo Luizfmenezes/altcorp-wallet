@@ -1,1 +1,8 @@
 node_modules
+
+# Arquivos de ambiente com segredos — NUNCA subir ao git
+.env
+.env.local
+.env.production
+
+# .env.example é o template sem segredos (esse sim vai ao git)
