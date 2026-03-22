@@ -14,8 +14,12 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Pasta ai-audio (modelos/dados locais pesados)
-ai-audio/
+# Ignorar apenas os modelos e dados pesados da IA
+ai-audio/models/
+ai-audio/**/*.bin
+ai-audio/**/*.pt
+ai-audio/**/*.pth
+ai-audio/temp_audio/
 
 # Build artifacts
 dist/
