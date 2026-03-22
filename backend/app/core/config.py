@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     # Domain
     DOMAIN: str = "localhost"
     
+    # Resend (Email service)
+    RESEND_API_KEY: str = ""
+    RESEND_FROM_EMAIL: str = "AltCorp Wallet <noreply@altcorp.com.br>"
+    
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = ""
+    
     def get_allowed_origins(self) -> List[str]:
         """Parse ALLOWED_ORIGINS string into list"""
         if not self.ALLOWED_ORIGINS:

@@ -23,11 +23,21 @@ async def get_current_user(
     if payload is None:
         raise credentials_exception
     
-    user_id: int = payload.get("sub")
-    if user_id is None:
+    # O token pode conter username (novo) ou user_id (legado)
+    sub = payload.get("sub")
+    if sub is None:
         raise credentials_exception
     
-    user = db.query(User).filter(User.id == user_id).first()
+    # Tentar buscar por username primeiro, depois por ID (compatibilidade)
+    user = db.query(User).filter(User.username == sub).first()
+    if user is None:
+        # Fallback: tentar como ID numérico (tokens antigos)
+        try:
+            user_id = int(sub)
+            user = db.query(User).filter(User.id == user_id).first()
+        except (ValueError, TypeError):
+            pass
+    
     if user is None:
         raise credentials_exception
     

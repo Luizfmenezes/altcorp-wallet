@@ -1,8 +1,28 @@
-node_modules
+﻿node_modules
 
-# Arquivos de ambiente com segredos — NUNCA subir ao git
+# Arquivos de ambiente com segredos - NUNCA subir ao git
 .env
 .env.local
 .env.production
+.env.development
 
-# .env.example é o template sem segredos (esse sim vai ao git)
+# .env.example e o template sem segredos (esse sim vai ao git)
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Pasta ai-audio (modelos/dados locais pesados)
+ai-audio/
+
+# Build artifacts
+dist/
+dist-ssr/
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store

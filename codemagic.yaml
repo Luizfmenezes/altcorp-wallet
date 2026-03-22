@@ -27,4 +27,4 @@ workflows:
     publishing:
       email:
         recipients:
-          - seu-email@exemplo.com # Troque pelo seu e-mail
+          - seu-email@exemplo.com # Troque pelo seu 

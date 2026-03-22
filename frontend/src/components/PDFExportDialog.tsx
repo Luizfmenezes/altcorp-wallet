@@ -17,7 +17,7 @@ interface PDFExportDialogProps {
 }
 
 const MONTH_NAMES = [
-  'Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho',
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ];
 
@@ -166,7 +166,7 @@ const PDFExportDialog: React.FC<PDFExportDialogProps> = ({
       doc.text('AltCorp Wallet', pageWidth / 2, 100, { align: 'center' });
       doc.setFontSize(14);
       doc.setFont('helvetica', 'normal');
-      doc.text('Fatura do Cartao de Credito', pageWidth / 2, 115, { align: 'center' });
+      doc.text('Fatura do Cartão de Crédito', pageWidth / 2, 115, { align: 'center' });
       
       const boxY = 140;
       const boxHeight = 100;
@@ -210,7 +210,7 @@ const PDFExportDialog: React.FC<PDFExportDialogProps> = ({
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(11);
       doc.setFont('helvetica', 'normal');
-      const itemsText = items.length + ' lancamento' + (items.length !== 1 ? 's' : '') + ' nesta fatura';
+      const itemsText = items.length + ' lançamento' + (items.length !== 1 ? 's' : '') + ' nesta fatura';
       doc.text(itemsText, pageWidth / 2, totalBoxY + 90, { align: 'center' });
 
       // PAGINA 2 - DETALHAMENTO
@@ -241,7 +241,7 @@ const PDFExportDialog: React.FC<PDFExportDialogProps> = ({
 
       autoTable(doc, {
         startY: 80,
-        head: [['Data', 'Descricao', 'Categoria', 'Titular', 'Valor']],
+        head: [['Data', 'Descrição', 'Categoria', 'Titular', 'Valor']],
         body: tableData,
         theme: 'striped',
         showHead: 'everyPage',
@@ -496,7 +496,7 @@ const PDFExportDialog: React.FC<PDFExportDialogProps> = ({
               {formatCurrency(totalAmount)}
             </div>
             <p className="text-sm text-muted-foreground">
-              {items.length} {items.length === 1 ? 'lancamento' : 'lancamentos'}
+              {items.length} {items.length === 1 ? 'lançamento' : 'lançamentos'}
             </p>
           </div>
           {Object.keys(ownerTotals).length > 0 && (
@@ -513,11 +513,11 @@ const PDFExportDialog: React.FC<PDFExportDialogProps> = ({
             </div>
           )}
           <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 text-sm">
-            <p className="text-blue-700 dark:text-blue-300">O PDF tera 4 paginas:</p>
+            <p className="text-blue-700 dark:text-blue-300">O PDF terá 4 páginas:</p>
             <ul className="text-blue-600 dark:text-blue-400 mt-1 ml-4 list-disc text-xs">
               <li>Capa com valor total</li>
-              <li>Detalhamento dos lancamentos</li>
-              <li>Grafico de distribuicao de gastos</li>
+              <li>Detalhamento dos lançamentos</li>
+              <li>Gráfico de distribuição de gastos</li>
               <li>Detalhamento por titular</li>
             </ul>
           </div>

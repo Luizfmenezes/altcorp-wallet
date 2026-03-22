@@ -13,7 +13,7 @@ interface StepAppearanceProps {
 }
 
 export const StepAppearance: React.FC<StepAppearanceProps> = ({ data, updateData, onNext, onPrev }) => {
-  const { theme, setTheme } = useTheme();
+  const { setTheme } = useTheme();
 
   const handleThemeSelect = (selectedTheme: 'light' | 'dark') => {
     updateData({ theme: selectedTheme });
@@ -91,20 +91,21 @@ export const StepAppearance: React.FC<StepAppearanceProps> = ({ data, updateData
             onClick={() => handleThemeSelect('dark')}
             className={`relative p-6 rounded-3xl border-2 transition-all ${
               data.theme === 'dark'
-                ? 'border-primary bg-primary/5'
-                : 'border-border bg-card hover:border-primary/50'
+                ? 'border-[#2B4BF2] bg-[#2B4BF2]/5'
+                : 'border-border bg-card hover:border-[#2B4BF2]/50'
             }`}
           >
             <div className="flex flex-col items-center gap-4">
-              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${
-                data.theme === 'dark' ? 'bg-primary' : 'bg-muted'
-              }`}>
-                <Moon className={`w-8 h-8 ${
-                  data.theme === 'dark' ? 'text-primary-foreground' : 'text-muted-foreground'
-                }`} />
+              {/* Mini preview do tema escuro */}
+              <div className="w-16 h-16 rounded-2xl overflow-hidden border border-border/40 flex flex-col"
+                style={{ background: '#111111' }}>
+                <div className="h-3 w-full" style={{ background: '#0D1A6E' }} />
+                <div className="flex-1 flex items-center justify-center">
+                  <Moon className="w-6 h-6" style={{ color: '#2B4BF2' }} />
+                </div>
               </div>
               <span className={`font-semibold ${
-                data.theme === 'dark' ? 'text-primary' : 'text-foreground'
+                data.theme === 'dark' ? 'text-[#2B4BF2]' : 'text-foreground'
               }`}>
                 Escuro
               </span>
@@ -112,9 +113,10 @@ export const StepAppearance: React.FC<StepAppearanceProps> = ({ data, updateData
             {data.theme === 'dark' && (
               <motion.div
                 layoutId="theme-check"
-                className="absolute top-3 right-3 w-6 h-6 rounded-full bg-primary flex items-center justify-center"
+                className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center"
+                style={{ background: '#2B4BF2' }}
               >
-                <svg className="w-4 h-4 text-primary-foreground" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="w-4 h-4 text-white" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
               </motion.div>

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark';
 
 interface ThemeContextType {
   theme: Theme;
@@ -10,11 +10,16 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+/** Classes que o ThemeProvider aplica no <html> */
+const THEME_CLASSES: Theme[] = ['light', 'dark'];
+
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('altcorp-theme') as Theme;
-      if (saved) return saved;
+      const saved = localStorage.getItem('altcorp-theme');
+      // Migrar valor legado 'dark-c6' para 'dark'
+      if (saved === 'dark-c6') return 'dark';
+      if (saved === 'light' || saved === 'dark') return saved as Theme;
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
     return 'light';
@@ -22,13 +27,15 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   useEffect(() => {
     const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
+    // Remove todas as classes de tema antes de aplicar a nova
+    root.classList.remove('light', 'dark', 'dark-c6'); // remove também legado
     root.classList.add(theme);
     localStorage.setItem('altcorp-theme', theme);
   }, [theme]);
 
+  /** Cicla: light → dark → light */
   const toggleTheme = () => {
-    setThemeState(prev => prev === 'light' ? 'dark' : 'light');
+    setThemeState(prev => (prev === 'light' ? 'dark' : 'light'));
   };
 
   const setTheme = (newTheme: Theme) => {

@@ -14,8 +14,10 @@ const adaptCard = (serverCard: any): Card => {
     name: serverCard.name || 'Sem Nome',
     type: serverCard.type || 'bank',
     color: serverCard.color || '#000000',
+    icon: serverCard.icon ?? null,
     closingDay: serverCard.closing_day ?? null,
     dueDay: serverCard.due_day ?? null,
+    creditLimit: serverCard.credit_limit ?? null,
     invoiceItems: Array.isArray(serverCard.invoice_items) 
       ? serverCard.invoice_items.map((item: any) => ({
           ...item,
@@ -124,6 +126,7 @@ export const financeService = {
         ...item,
         id: String(item.id),
         isRecurring: item.is_recurring ?? false,
+        isPaid: item.is_paid ?? false,
         frequency: item.frequency ?? undefined,
       }));
     } catch {
@@ -136,8 +139,12 @@ export const financeService = {
       payload.is_recurring = data.isRecurring;
       delete payload.isRecurring;
     }
+    if ('isPaid' in data) {
+      payload.is_paid = data.isPaid;
+      delete payload.isPaid;
+    }
     const response = await api.post('/expenses/', payload);
-    return { ...response.data, id: String(response.data.id) };
+    return { ...response.data, id: String(response.data.id), isPaid: response.data.is_paid ?? false, isRecurring: response.data.is_recurring ?? false };
   },
   updateExpense: async (id: string, data: Partial<CreateExpense>) => {
     const payload: any = { ...data };
@@ -145,8 +152,12 @@ export const financeService = {
       payload.is_recurring = data.isRecurring;
       delete payload.isRecurring;
     }
+    if ('isPaid' in data) {
+      payload.is_paid = data.isPaid;
+      delete payload.isPaid;
+    }
     const response = await api.put(`/expenses/${id}`, payload);
-    return { ...response.data, id: String(response.data.id) };
+    return { ...response.data, id: String(response.data.id), isPaid: response.data.is_paid ?? false, isRecurring: response.data.is_recurring ?? false };
   },
   deleteExpense: async (id: string) => {
     await api.delete(`/expenses/${id}`);
@@ -172,6 +183,10 @@ export const financeService = {
       payload.due_day = data.dueDay;
       delete payload.dueDay;
     }
+    if ('creditLimit' in data) {
+      payload.credit_limit = data.creditLimit;
+      delete payload.creditLimit;
+    }
     const response = await api.post('/cards/', payload);
     return adaptCard(response.data);
   },
@@ -187,6 +202,10 @@ export const financeService = {
     if ('dueDay' in data) {
       payload.due_day = data.dueDay;
       delete payload.dueDay;
+    }
+    if ('creditLimit' in data) {
+      payload.credit_limit = data.creditLimit;
+      delete payload.creditLimit;
     }
     const response = await api.put(`/cards/${id}`, payload);
     return adaptCard(response.data);

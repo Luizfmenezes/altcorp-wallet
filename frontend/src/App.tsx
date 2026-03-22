@@ -18,7 +18,10 @@ import Settings from "./pages/Settings";
 import UserManagement from "./pages/UserManagement";
 import History from "./pages/History";
 import MonthlyAnalysisPage from "./pages/MonthlyAnalysisPage";
+import QuickAdd from "./pages/QuickAdd";
+import VoiceAdd from "./pages/VoiceAdd";
 import NotFound from "./pages/NotFound";
+import { AppLayout } from "./components/AppLayout";
 
 const queryClient = new QueryClient();
 
@@ -54,7 +57,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const OnboardingWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { hasCompletedOnboarding, completeOnboarding, isAuthenticated, isLoading, updateProfilePhoto } = useAuth();
+  const { hasCompletedOnboarding, completeOnboarding, isAuthenticated, isLoading, updateProfilePhoto, user } = useAuth();
   const { setInitialIncome, setInitialCards, setPeople, loadFinanceData } = useFinance();
 
   const handleOnboardingComplete = async (data: OnboardingData) => {
@@ -71,11 +74,15 @@ const OnboardingWrapper: React.FC<{ children: React.ReactNode }> = ({ children }
     }
 
     if (data.profilePhoto) {
-      try {
-        const authService = (await import('@/services/authService')).default;
-        await authService.updateProfilePhoto(data.profilePhoto);
-        updateProfilePhoto(data.profilePhoto);
-      } catch { /* silent */ }
+      // Só envia para o backend se for base64 (foto local), não se for URL do Google
+      const isBase64 = data.profilePhoto.startsWith('data:');
+      if (isBase64) {
+        try {
+          const authService = (await import('@/services/authService')).default;
+          await authService.updateProfilePhoto(data.profilePhoto);
+          updateProfilePhoto(data.profilePhoto);
+        } catch { /* silent */ }
+      }
     }
 
     const fullName = `${data.firstName} ${data.lastName}`;
@@ -98,7 +105,15 @@ const OnboardingWrapper: React.FC<{ children: React.ReactNode }> = ({ children }
 
   // Only show onboarding if authenticated and not completed
   if (isAuthenticated && !hasCompletedOnboarding) {
-    return <OnboardingWizard onComplete={handleOnboardingComplete} />;
+    // Pré-preenche com dados do usuário (Google traz nome, email e avatar)
+    const nameParts = (user?.name || '').split(' ');
+    const initialData = {
+      firstName: nameParts[0] || '',
+      lastName: nameParts.slice(1).join(' ') || '',
+      email: user?.profile?.email || user?.apiUser?.email || '',
+      profilePhoto: user?.avatar_url || user?.profile_photo || undefined,
+    };
+    return <OnboardingWizard onComplete={handleOnboardingComplete} initialData={initialData} />;
   }
 
   return <>{children}</>;
@@ -113,7 +128,9 @@ const AppRoutes = () => {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <AppLayout>
+                <Dashboard />
+              </AppLayout>
             </ProtectedRoute>
           }
         />
@@ -121,7 +138,9 @@ const AppRoutes = () => {
           path="/incomes"
           element={
             <ProtectedRoute>
-              <Incomes />
+              <AppLayout>
+                <Incomes />
+              </AppLayout>
             </ProtectedRoute>
           }
         />
@@ -129,7 +148,9 @@ const AppRoutes = () => {
           path="/expenses"
           element={
             <ProtectedRoute>
-              <Expenses />
+              <AppLayout>
+                <Expenses />
+              </AppLayout>
             </ProtectedRoute>
           }
         />
@@ -137,7 +158,9 @@ const AppRoutes = () => {
           path="/wallet"
           element={
             <ProtectedRoute>
-              <Wallet />
+              <AppLayout>
+                <Wallet />
+              </AppLayout>
             </ProtectedRoute>
           }
         />
@@ -145,7 +168,9 @@ const AppRoutes = () => {
           path="/wallet/:id"
           element={
             <ProtectedRoute>
-              <CardDetail />
+              <AppLayout>
+                <CardDetail />
+              </AppLayout>
             </ProtectedRoute>
           }
         />
@@ -153,7 +178,9 @@ const AppRoutes = () => {
           path="/settings"
           element={
             <ProtectedRoute>
-              <Settings />
+              <AppLayout>
+                <Settings />
+              </AppLayout>
             </ProtectedRoute>
           }
         />
@@ -161,7 +188,9 @@ const AppRoutes = () => {
           path="/users"
           element={
             <ProtectedRoute>
-              <UserManagement />
+              <AppLayout>
+                <UserManagement />
+              </AppLayout>
             </ProtectedRoute>
           }
         />
@@ -169,7 +198,9 @@ const AppRoutes = () => {
           path="/history"
           element={
             <ProtectedRoute>
-              <History />
+              <AppLayout>
+                <History />
+              </AppLayout>
             </ProtectedRoute>
           }
         />
@@ -177,7 +208,29 @@ const AppRoutes = () => {
           path="/monthly-analysis"
           element={
             <ProtectedRoute>
-              <MonthlyAnalysisPage />
+              <AppLayout>
+                <MonthlyAnalysisPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/add"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <QuickAdd />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/add-voice"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <VoiceAdd />
+              </AppLayout>
             </ProtectedRoute>
           }
         />

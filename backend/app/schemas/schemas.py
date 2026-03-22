@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
+import re
 
 # Enums
 class IncomeType(str, Enum):
@@ -54,6 +55,9 @@ class UserResponse(UserBase):
     role: UserRole
     is_active: bool
     onboarding_completed: bool
+    email_verified: bool = False
+    google_id: Optional[str] = None
+    avatar_url: Optional[str] = None
     profile_photo: Optional[str] = None
     created_at: datetime
     
@@ -61,8 +65,64 @@ class UserResponse(UserBase):
         from_attributes = True
 
 class UserLogin(BaseModel):
+    username: str  # Can be username or email
+    password: str
+
+# Auth - Registration
+class RegisterRequest(BaseModel):
+    name: str
+    email: EmailStr
     username: str
     password: str
+    confirm_password: str
+    
+    @field_validator('confirm_password')
+    @classmethod
+    def passwords_match(cls, v, info):
+        if 'password' in info.data and v != info.data['password']:
+            raise ValueError('As senhas não conferem')
+        return v
+    
+    @field_validator('username')
+    @classmethod
+    def username_valid(cls, v):
+        v = v.strip().lower()
+        if len(v) < 3:
+            raise ValueError('Username deve ter pelo menos 3 caracteres')
+        if len(v) > 30:
+            raise ValueError('Username deve ter no máximo 30 caracteres')
+        if not re.match(r'^[a-z0-9_]+$', v):
+            raise ValueError('Username pode conter apenas letras, números e _')
+        return v
+
+# Auth - Email Verification
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+    code: str
+
+class ResendCodeRequest(BaseModel):
+    email: EmailStr
+
+# Auth - Password Reset
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str
+    new_password: str
+    confirm_password: str
+    
+    @field_validator('confirm_password')
+    @classmethod
+    def passwords_match(cls, v, info):
+        if 'new_password' in info.data and v != info.data['new_password']:
+            raise ValueError('As senhas não conferem')
+        return v
+
+# Auth - Google Login
+class GoogleLoginRequest(BaseModel):
+    credential: str  # Google ID token
 
 # Income Schemas
 class IncomeBase(BaseModel):
@@ -106,6 +166,7 @@ class ExpenseBase(BaseModel):
     amount: float
     owner: str
     is_recurring: bool = False
+    is_paid: bool = False
     frequency: Optional[FrequencyType] = None
 
 class ExpenseCreate(ExpenseBase):
@@ -118,6 +179,7 @@ class ExpenseUpdate(BaseModel):
     amount: Optional[float] = None
     owner: Optional[str] = None
     is_recurring: Optional[bool] = None
+    is_paid: Optional[bool] = None
     frequency: Optional[FrequencyType] = None
 
 class ExpenseResponse(ExpenseBase):
@@ -133,8 +195,10 @@ class CardBase(BaseModel):
     name: str
     type: CardType
     color: str
+    icon: Optional[str] = None             # Ícone/banco do cartão
     closing_day: Optional[int] = None  # Dia de fechamento da fatura (1-31)
     due_day: Optional[int] = None      # Dia de vencimento/pagamento (1-31)
+    credit_limit: Optional[float] = None  # Limite do cartão
 
 class CardCreate(CardBase):
     pass
@@ -143,8 +207,10 @@ class CardUpdate(BaseModel):
     name: Optional[str] = None
     type: Optional[CardType] = None
     color: Optional[str] = None
+    icon: Optional[str] = None
     closing_day: Optional[int] = None
     due_day: Optional[int] = None
+    credit_limit: Optional[float] = None
 
 # Invoice Item Schemas
 class InstallmentInfo(BaseModel):
@@ -196,6 +262,7 @@ class CardResponse(CardBase):
     user_id: int
     closing_day: Optional[int] = None
     due_day: Optional[int] = None
+    credit_limit: Optional[float] = None
     created_at: datetime
     invoice_items: List[InvoiceItemResponse] = []
     paid_invoices: List[PaidInvoiceResponse] = []

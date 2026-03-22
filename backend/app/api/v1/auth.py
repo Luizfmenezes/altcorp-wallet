@@ -1,101 +1,304 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
 from app.database.session import get_db
-from app.database.models import User, UserRole
-from app.schemas.schemas import Token, UserCreate, UserResponse, UserLogin
+from app.database.models import User, UserRole, VerificationType
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.core.config import settings
+from app.schemas.schemas import (
+    RegisterRequest, VerifyEmailRequest, ResendCodeRequest,
+    ForgotPasswordRequest, ResetPasswordRequest, GoogleLoginRequest,
+    Token
+)
+from app.services.email_service import (
+    create_verification_code, verify_code,
+    send_verification_email, send_password_reset_email
+)
 
 router = APIRouter()
 
+
+# ======================== LOGIN ========================
+
 @router.post("/login", response_model=Token)
-def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
-):
-    """Login with username and password"""
-    # Normalize username: case-insensitive + trim
-    normalized_username = form_data.username.strip().lower()
-    user = db.query(User).filter(User.username == normalized_username).first()
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """Login com username ou email + senha"""
+    identifier = form_data.username.strip().lower()
     
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    # Tentar buscar por username ou email
+    user = db.query(User).filter(
+        (User.username == identifier) | (User.email == identifier)
+    ).first()
+    
+    if not user or not user.hashed_password:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Credenciais incorretas",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    if not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciais incorretas",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive"
+            detail="Conta desativada"
         )
     
-    # Create access token
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(user.id), "username": user.username, "role": user.role.value},
-        expires_delta=access_token_expires
-    )
-    
-    return {
-        "access_token": access_token,
-        "token_type": "bearer"
-    }
-
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def register(
-    user_data: UserCreate,
-    db: Session = Depends(get_db)
-):
-    """Register new user - ONLY allowed when database is empty (first user)"""
-    # Normalize username
-    user_data.username = user_data.username.strip().lower()
-    if user_data.email:
-        user_data.email = user_data.email.strip().lower()
-
-    # Check if any users exist
-    user_count = db.query(User).count()
-    
-    # Only allow registration if no users exist (first user becomes admin)
-    if user_count > 0:
+    if not user.email_verified and user.email:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User registration is disabled. Contact an administrator to create your account."
+            detail="Email não verificado. Verifique seu email para continuar.",
+            headers={"X-Email-Unverified": "true"},
         )
     
-    # Check if username already exists
-    existing_user = db.query(User).filter(User.username == user_data.username).first()
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+# ======================== REGISTER ========================
+
+@router.post("/register", response_model=dict)
+def register(data: RegisterRequest, db: Session = Depends(get_db)):
+    """Criar conta com email, username e senha"""
+    # Verificar se username já existe
+    existing_user = db.query(User).filter(User.username == data.username.strip().lower()).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already registered"
+            detail="Este username já está em uso"
         )
     
-    # Check email if provided
-    if user_data.email:
-        existing_email = db.query(User).filter(User.email == user_data.email).first()
-        if existing_email:
+    # Verificar se email já existe
+    existing_email = db.query(User).filter(User.email == data.email.strip().lower()).first()
+    if existing_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Este email já está cadastrado"
+        )
+    
+    # Determinar role (primeiro usuário vira admin)
+    user_count = db.query(User).count()
+    role = UserRole.admin if user_count == 0 else UserRole.user
+    is_verified = user_count == 0  # Primeiro usuário não precisa verificar
+    
+    # Criar o usuário
+    user = User(
+        username=data.username.strip().lower(),
+        email=data.email.strip().lower(),
+        name=data.name.strip(),
+        hashed_password=get_password_hash(data.password),
+        role=role,
+        is_active=True,
+        email_verified=is_verified,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    # Se não é o primeiro usuário, enviar código de verificação
+    if not is_verified:
+        code = create_verification_code(db, user.email, VerificationType.email_verify, user.id)
+        send_verification_email(user.email, code, user.name)
+        return {
+            "message": "Conta criada! Verifique seu email para ativar.",
+            "email": user.email,
+            "requires_verification": True
+        }
+    
+    return {
+        "message": "Conta de administrador criada com sucesso!",
+        "email": user.email,
+        "requires_verification": False
+    }
+
+
+# ======================== VERIFY EMAIL ========================
+
+@router.post("/verify-email", response_model=Token)
+def verify_email(data: VerifyEmailRequest, db: Session = Depends(get_db)):
+    """Verificar email com código de 6 dígitos"""
+    email = data.email.strip().lower()
+    
+    if not verify_code(db, email, data.code.strip(), VerificationType.email_verify):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Código inválido ou expirado"
+        )
+    
+    # Ativar email do usuário
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuário não encontrado"
+        )
+    
+    user.email_verified = True
+    db.commit()
+    
+    # Gerar token de acesso automaticamente após verificação
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+# ======================== RESEND CODE ========================
+
+@router.post("/resend-code", response_model=dict)
+def resend_verification_code(data: ResendCodeRequest, db: Session = Depends(get_db)):
+    """Reenviar código de verificação de email"""
+    email = data.email.strip().lower()
+    
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        # Não revelar se o email existe ou não
+        return {"message": "Se o email estiver cadastrado, um novo código será enviado."}
+    
+    if user.email_verified:
+        return {"message": "Este email já está verificado."}
+    
+    code = create_verification_code(db, email, VerificationType.email_verify, user.id)
+    send_verification_email(email, code, user.name)
+    
+    return {"message": "Novo código enviado para seu email."}
+
+
+# ======================== FORGOT PASSWORD ========================
+
+@router.post("/forgot-password", response_model=dict)
+def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Solicitar código de redefinição de senha"""
+    email = data.email.strip().lower()
+    
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        # Não revelar se o email existe
+        return {"message": "Se o email estiver cadastrado, um código de redefinição será enviado."}
+    
+    code = create_verification_code(db, email, VerificationType.password_reset, user.id)
+    send_password_reset_email(email, code, user.name)
+    
+    return {"message": "Código de redefinição enviado para seu email."}
+
+
+# ======================== RESET PASSWORD ========================
+
+@router.post("/reset-password", response_model=dict)
+def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Redefinir senha com código recebido por email"""
+    email = data.email.strip().lower()
+    
+    if not verify_code(db, email, data.code.strip(), VerificationType.password_reset):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Código inválido ou expirado"
+        )
+    
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuário não encontrado"
+        )
+    
+    user.hashed_password = get_password_hash(data.new_password)
+    db.commit()
+    
+    return {"message": "Senha redefinida com sucesso! Faça login com sua nova senha."}
+
+
+# ======================== GOOGLE LOGIN ========================
+
+@router.post("/google-login", response_model=Token)
+def google_login(data: GoogleLoginRequest, db: Session = Depends(get_db)):
+    """Login/registro via Google OAuth"""
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        # Verificar o token do Google (com tolerância de clock de 5 minutos)
+        idinfo = id_token.verify_oauth2_token(
+            data.credential,
+            google_requests.Request(),
+            settings.GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=300
+        )
+        
+        google_id = idinfo["sub"]
+        email = idinfo.get("email", "").lower()
+        name = idinfo.get("name", "")
+        picture = idinfo.get("picture", "")
+        
+        if not email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail="Não foi possível obter o email da conta Google"
             )
+        
+    except ValueError as e:
+        logger.error(f"❌ Google OAuth error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Token do Google inválido: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"❌ Google OAuth unexpected error: {type(e).__name__}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Erro na verificação do Google: {str(e)}"
+        )
     
-    # First user becomes admin
-    hashed_password = get_password_hash(user_data.password)
-    db_user = User(
-        username=user_data.username,
-        email=user_data.email,
-        name=user_data.name,
-        hashed_password=hashed_password,
-        role=UserRole.admin,  # First user is always admin
-        is_active=True
-    )
+    # Procurar usuário existente por google_id ou email
+    user = db.query(User).filter(
+        (User.google_id == google_id) | (User.email == email)
+    ).first()
     
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    if user:
+        # Atualizar google_id se necessário
+        if not user.google_id:
+            user.google_id = google_id
+        if picture:
+            user.avatar_url = picture  # Sempre atualiza a foto do Google
+        db.commit()
+    else:
+        # Criar novo usuário via Google
+        user_count = db.query(User).count()
+        role = UserRole.admin if user_count == 0 else UserRole.user
+        
+        # Gerar username único a partir do email
+        base_username = email.split("@")[0].lower()
+        username = base_username
+        counter = 1
+        while db.query(User).filter(User.username == username).first():
+            username = f"{base_username}{counter}"
+            counter += 1
+        
+        user = User(
+            username=username,
+            email=email,
+            name=name,
+            google_id=google_id,
+            avatar_url=picture,
+            role=role,
+            is_active=True,
+            email_verified=True,  # Google já verificou o email
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
     
-    return db_user
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Conta desativada"
+        )
+    
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
