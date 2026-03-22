@@ -21,6 +21,7 @@ export interface Expense {
   category: string;
   amount: number;
   owner: string;
+  isPaid?: boolean;
   isRecurring?: boolean;
   frequency?: 'monthly' | 'weekly';
 }
@@ -54,8 +55,10 @@ export interface Card {
   name: string;
   type: 'credit' | 'debit' | 'bank';
   color: string;
+  icon?: string | null;
   closingDay?: number | null;
   dueDay?: number | null;
+  creditLimit?: number | null;
   invoiceItems: InvoiceItem[];
   paidInvoices?: Array<{ id: string; month: number; year: number }>;
 }
@@ -343,12 +346,22 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
           name: card.name,
           type: 'credit',
           color: cardColors[index % cardColors.length],
+          creditLimit: card.limit > 0 ? card.limit : null,
         });
         createdCards.push(newCard);
-      } catch { /* silent */ }
+      } catch (err) {
+        console.error('[Onboarding] Falha ao criar cartão:', card.name, err);
+      }
     }
     
-    setCards(createdCards);
+    if (createdCards.length > 0) {
+      setCards(prev => {
+        // Remove duplicatas por nome antes de adicionar
+        const existingNames = new Set(prev.map(c => c.name.toLowerCase()));
+        const toAdd = createdCards.filter(c => !existingNames.has(c.name.toLowerCase()));
+        return [...prev, ...toAdd];
+      });
+    }
   };
 
   const getTotalIncome = () => {

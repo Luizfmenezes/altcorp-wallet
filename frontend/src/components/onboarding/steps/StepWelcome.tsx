@@ -47,8 +47,9 @@ export const StepWelcome: React.FC<StepWelcomeProps> = ({ data, updateData, onNe
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
           className="text-2xl font-semibold text-primary text-center mb-8"
+          style={{ opacity: 1 }}
         >
-          ALTCORP Wallet
+          ALTCORP WALLET
         </motion.p>
 
         <motion.p

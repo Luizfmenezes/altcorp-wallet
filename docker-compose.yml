@@ -4,6 +4,10 @@ services:
     image: postgres:16-alpine
     container_name: altcorp-wallet-db
     restart: unless-stopped
+    env_file:
+      - .env
+      - path: .env.local
+        required: false
     environment:
       TZ: America/Sao_Paulo
       POSTGRES_USER: ${POSTGRES_USER:-walletuser}
@@ -29,16 +33,18 @@ services:
       dockerfile: Dockerfile
     container_name: altcorp-wallet-backend
     restart: unless-stopped
+    env_file:
+      - .env
+      - path: .env.local
+        required: false
     environment:
       TZ: America/Sao_Paulo
-      DATABASE_URL: postgresql://${POSTGRES_USER:-walletuser}:${POSTGRES_PASSWORD:-walletpass123}@database:5432/${POSTGRES_DB:-altcorp_wallet}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-walletuser}:${POSTGRES_PASSWORD:-walletpass123secure}@database:5432/${POSTGRES_DB:-altcorp_wallet}
       API_HOST: 0.0.0.0
       API_PORT: 8000
-      DEBUG: ${DEBUG:-True}
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost,http://localhost:80,http://localhost:8080,http://192.168.15.5:8080}
+      # ALLOWED_ORIGINS, SECRET_KEY e DEBUG vêm do env_file (.env ou .env.local)
     ports:
       - "8000:8000"
     networks:
@@ -55,10 +61,15 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # Passa a variável do seu arquivo .env para o build do Vite
+        # Passa a variável do seu arquivo .env/.env.local para o build do Vite
         - VITE_API_URL=${VITE_API_URL}
+        - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
     container_name: altcorp-wallet-frontend
     restart: unless-stopped
+    env_file:
+      - .env
+      - path: .env.local
+        required: false
     ports:
       - "8080:80"
     networks:
@@ -68,6 +79,40 @@ services:
     environment:
       TZ: America/Sao_Paulo
       VITE_API_URL: ${VITE_API_URL}
+
+  # Ollama — LLM local
+  ollama:
+    image: ollama/ollama:latest
+    container_name: altcorp-wallet-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - wallet-network
+    environment:
+      TZ: America/Sao_Paulo
+
+  # AI Audio — Transcrição + LLM
+  ai-audio:
+    build:
+      context: ./ai-audio
+      dockerfile: Dockerfile
+    container_name: altcorp-wallet-ai-audio
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    networks:
+      - wallet-network
+    depends_on:
+      - ollama
+    environment:
+      TZ: America/Sao_Paulo
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: llama3.2:1b
+      WHISPER_MODEL_SIZE: small
+
 networks:
   wallet-network:
     driver: bridge
@@ -76,3 +121,5 @@ networks:
 volumes:
   postgres_data:
     name: altcorp-wallet-postgres-data
+  ollama_data:
+    name: altcorp-wallet-ollama-data

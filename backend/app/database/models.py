@@ -25,11 +25,16 @@ class UserRole(str, enum.Enum):
     def __str__(self):
         return self.value
 
+class VerificationType(str, enum.Enum):
+    email_verify = "email_verify"
+    password_reset = "password_reset"
+
 # SQLAlchemy Enum definitions that match PostgreSQL enum names
 IncomeTypeEnum = Enum(IncomeType, name='income_type', values_callable=lambda obj: [e.value for e in obj])
 CardTypeEnum = Enum(CardType, name='card_type', values_callable=lambda obj: [e.value for e in obj])
 FrequencyTypeEnum = Enum(FrequencyType, name='frequency_type', values_callable=lambda obj: [e.value for e in obj])
 UserRoleEnum = Enum(UserRole, name='user_role', values_callable=lambda obj: [e.value for e in obj])
+VerificationTypeEnum = Enum(VerificationType, name='verification_type', values_callable=lambda obj: [e.value for e in obj])
 
 class User(Base):
     __tablename__ = "users"
@@ -38,10 +43,13 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=True)
     name = Column(String, nullable=False)
-    hashed_password = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=True)  # Nullable for Google OAuth users
     role = Column(UserRoleEnum, nullable=False, default=UserRole.user)
     is_active = Column(Boolean, default=True, nullable=False)
     onboarding_completed = Column(Boolean, default=False, nullable=False)
+    email_verified = Column(Boolean, default=False, nullable=False)
+    google_id = Column(String, unique=True, nullable=True)
+    avatar_url = Column(String, nullable=True)
     profile_photo = Column(String, nullable=True)  # Base64 encoded image
     people = Column(JSON, nullable=True, default=list)  # Lista de pessoas do usuário
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -84,6 +92,7 @@ class Expense(Base):
     amount = Column(Float, nullable=False)
     owner = Column(String, nullable=False)
     is_recurring = Column(Boolean, default=False)
+    is_paid = Column(Boolean, default=False)
     frequency = Column(FrequencyTypeEnum, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
@@ -98,8 +107,10 @@ class Card(Base):
     name = Column(String, nullable=False)
     type = Column(CardTypeEnum, nullable=False)
     color = Column(String, nullable=False)
+    icon = Column(String, nullable=True)           # Ícone/banco do cartão (ex: 'nubank', 'itau')
     closing_day = Column(Integer, nullable=True)  # Dia de fechamento da fatura (1-31)
     due_day = Column(Integer, nullable=True)       # Dia de vencimento/pagamento (1-31)
+    credit_limit = Column(Float, nullable=True)    # Limite do cartão
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
@@ -152,3 +163,15 @@ class Budget(Base):
     
     # Relationships
     user = relationship("User", back_populates="budgets")
+
+class VerificationCode(Base):
+    __tablename__ = "verification_codes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    email = Column(String, nullable=False, index=True)
+    code = Column(String(6), nullable=False, index=True)
+    type = Column(VerificationTypeEnum, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

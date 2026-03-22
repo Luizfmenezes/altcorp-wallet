@@ -15,23 +15,29 @@ export interface OnboardingData {
   profilePhoto?: string;
   theme: 'light' | 'dark';
   monthlyIncome: number;
-  cards: Array<{ name: string; limit: number }>;
+  cards: Array<{ name: string; limit: number; icon?: string; color?: string }>;
   people: string[];
   isShared: boolean;
 }
 
 interface OnboardingWizardProps {
   onComplete: (data: OnboardingData) => void;
+  initialData?: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    profilePhoto?: string;
+  };
 }
 
-export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }) => {
+export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete, initialData }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [showComplete, setShowComplete] = useState(false);
   const [data, setData] = useState<OnboardingData>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    profilePhoto: undefined,
+    firstName: initialData?.firstName || '',
+    lastName: initialData?.lastName || '',
+    email: initialData?.email || '',
+    profilePhoto: initialData?.profilePhoto || undefined,
     theme: 'dark',
     monthlyIncome: 0,
     cards: [],

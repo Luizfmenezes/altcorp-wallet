@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import authService, { type User as ApiUser } from '@/services/authService';
+import authService, { type User as ApiUser, type RegisterData, type RegisterResponse } from '@/services/authService';
 
 interface UserProfile {
   firstName: string;
@@ -14,6 +14,8 @@ interface User {
   profile?: UserProfile;
   role?: 'admin' | 'user' | 'temp';
   profile_photo?: string;
+  avatar_url?: string;
+  email_verified?: boolean;
   apiUser?: ApiUser;
 }
 
@@ -21,7 +23,12 @@ interface AuthContextType {
   user: User | null;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
-  register: (name: string, email: string, password: string) => Promise<boolean>;
+  register: (data: RegisterData) => Promise<RegisterResponse>;
+  verifyEmail: (email: string, code: string) => Promise<boolean>;
+  resendCode: (email: string) => Promise<string>;
+  forgotPassword: (email: string) => Promise<string>;
+  resetPassword: (email: string, code: string, newPassword: string, confirmPassword: string) => Promise<string>;
+  googleLogin: (credential: string) => Promise<boolean>;
   isAuthenticated: boolean;
   isLoading: boolean;
   hasCompletedOnboarding: boolean;
@@ -52,6 +59,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         name: apiUser.name,
         role: apiUser.role,
         profile_photo: apiUser.profile_photo,
+        avatar_url: apiUser.avatar_url,
+        email_verified: apiUser.email_verified,
         apiUser,
       });
       // Use the onboarding status from the API user (from database)
@@ -69,6 +78,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         name: apiUser.name,
         role: apiUser.role,
         profile_photo: apiUser.profile_photo,
+        avatar_url: apiUser.avatar_url,
+        email_verified: apiUser.email_verified,
         apiUser,
       });
       
@@ -81,10 +92,63 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const register = async (name: string, username: string, password: string): Promise<boolean> => {
+  const register = async (data: RegisterData): Promise<RegisterResponse> => {
+    return await authService.register(data);
+  };
+
+  const verifyEmail = async (email: string, code: string): Promise<boolean> => {
     try {
-      await authService.register({ name, username, password });
-      return await login(username, password);
+      const apiUser = await authService.verifyEmail({ email, code });
+      setUser({
+        username: apiUser.username,
+        name: apiUser.name,
+        role: apiUser.role,
+        profile_photo: apiUser.profile_photo,
+        avatar_url: apiUser.avatar_url,
+        email_verified: apiUser.email_verified,
+        apiUser,
+      });
+      setHasCompletedOnboarding(apiUser.onboarding_completed);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const resendCode = async (email: string): Promise<string> => {
+    const result = await authService.resendCode(email);
+    return result.message;
+  };
+
+  const forgotPassword = async (email: string): Promise<string> => {
+    const result = await authService.forgotPassword(email);
+    return result.message;
+  };
+
+  const resetPassword = async (email: string, code: string, newPassword: string, confirmPassword: string): Promise<string> => {
+    const result = await authService.resetPassword({
+      email,
+      code,
+      new_password: newPassword,
+      confirm_password: confirmPassword,
+    });
+    return result.message;
+  };
+
+  const googleLogin = async (credential: string): Promise<boolean> => {
+    try {
+      const apiUser = await authService.googleLogin(credential);
+      setUser({
+        username: apiUser.username,
+        name: apiUser.name,
+        role: apiUser.role,
+        profile_photo: apiUser.profile_photo,
+        avatar_url: apiUser.avatar_url,
+        email_verified: apiUser.email_verified,
+        apiUser,
+      });
+      setHasCompletedOnboarding(apiUser.onboarding_completed);
+      return true;
     } catch {
       return false;
     }
@@ -153,6 +217,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         name: apiUser.name,
         role: apiUser.role,
         profile_photo: apiUser.profile_photo,
+        avatar_url: apiUser.avatar_url,
+        email_verified: apiUser.email_verified,
         apiUser,
       });
       setHasCompletedOnboarding(apiUser.onboarding_completed);
@@ -166,6 +232,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       user, 
       login,
       register,
+      verifyEmail,
+      resendCode,
+      forgotPassword,
+      resetPassword,
+      googleLogin,
       logout, 
       isAuthenticated: !!user,
       isLoading,

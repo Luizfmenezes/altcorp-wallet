@@ -174,7 +174,10 @@ export const StepPhoto: React.FC<StepPhotoProps> = ({ data, updateData, onNext, 
           </div>
 
           <p className="text-sm text-muted-foreground">
-            Clique para {data.profilePhoto ? 'alterar' : 'adicionar'} foto
+            {data.profilePhoto && !data.profilePhoto.startsWith('data:')
+              ? 'Foto importada do Google — clique para alterar'
+              : `Clique para ${data.profilePhoto ? 'alterar' : 'adicionar'} foto`
+            }
           </p>
 
           {data.profilePhoto && (

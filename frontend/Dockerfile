@@ -7,6 +7,9 @@ WORKDIR /app
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
+ARG VITE_GOOGLE_CLIENT_ID
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+
 # Copy package files
 COPY package.json bun.lockb ./
 
@@ -16,8 +19,8 @@ RUN npm install -g bun && bun install
 # Copy source code
 COPY . .
 
-# Build the application with environment variable
-RUN echo "Building with VITE_API_URL=$VITE_API_URL" && bun run build
+# Build the application with environment variables
+RUN echo "Building with VITE_API_URL=$VITE_API_URL VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID" && bun run build
 
 # Production stage
 FROM nginx:alpine

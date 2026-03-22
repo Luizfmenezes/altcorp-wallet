@@ -4,24 +4,14 @@ import { BottomNav } from '@/components/BottomNav';
 import { useFinance, getMonthName } from '@/contexts/FinanceContext';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from '@/contexts/ThemeContext';
+import CategoryIcon from '@/components/CategoryIcon';
+import BankLogo from '@/components/BankLogo';
 
 const CATEGORIES = [
   'Alimentação', 'Transporte', 'Moradia', 'Lazer', 'Saúde',
   'Educação', 'Compras', 'Serviços', 'Streaming', 'Outros',
 ];
-
-const CATEGORY_ICONS: Record<string, string> = {
-  'Alimentação': '🍔',
-  'Transporte': '🚗',
-  'Moradia': '🏠',
-  'Lazer': '🎮',
-  'Saúde': '💊',
-  'Educação': '📚',
-  'Compras': '🛍️',
-  'Serviços': '🔧',
-  'Streaming': '📺',
-  'Outros': '📋',
-};
 
 const CATEGORY_COLORS = [
   '#8B5CF6', '#F97316', '#EF4444', '#3B82F6', '#10B981',
@@ -35,9 +25,9 @@ const MonthlyAnalysisPage: React.FC = () => {
     getExpensesByCategory, getBudgetStatus, setBudget, removeBudget,
   } = useFinance();
   const navigate = useNavigate();
+  const { theme } = useTheme();
 
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [showBudgetConfig, setShowBudgetConfig] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);  const [showBudgetConfig, setShowBudgetConfig] = useState(false);
   const [configCategory, setConfigCategory] = useState('');
   const [configLimit, setConfigLimit] = useState('');
 
@@ -54,7 +44,6 @@ const MonthlyAnalysisPage: React.FC = () => {
       .map((item, i) => ({
         ...item,
         color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
-        icon: CATEGORY_ICONS[item.category] || '📋',
         percentage: totalExpenses > 0 ? (item.amount / totalExpenses) * 100 : 0,
       }));
   }, [expensesByCategory, totalExpenses]);
@@ -155,7 +144,7 @@ const MonthlyAnalysisPage: React.FC = () => {
         const d = new Date(item.date);
         return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
       }).length;
-      return { id: card.id, name: card.name, color: card.color, total, itemCount, type: card.type };
+      return { id: card.id, name: card.name, color: card.color, icon: card.icon, total, itemCount, type: card.type };
     }).filter(c => c.total > 0 || c.itemCount > 0);
   }, [cards, selectedMonth, selectedYear]);
 
@@ -245,7 +234,7 @@ const MonthlyAnalysisPage: React.FC = () => {
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2.5">
-                        <span className="text-xl">{cat.icon}</span>
+                        <CategoryIcon category={cat.category} size={32} iconSize={17} />
                         <span className="font-medium text-sm text-foreground">{cat.category}</span>
                       </div>
                       <span className="font-bold text-sm" style={{ color: cat.color }}>
@@ -380,6 +369,68 @@ const MonthlyAnalysisPage: React.FC = () => {
               <p className="text-sm text-muted-foreground">Total de gastos em {monthName}</p>
               <p className="text-2xl font-bold text-foreground">{formatCurrency(totalExpenses)}</p>
             </div>
+
+            {/* Detalhes por cartão */}
+            {cardSummary.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Por cartão</p>
+                {cardSummary.map((card, i) => (
+                  <motion.div
+                    key={card.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 + i * 0.06 }}
+                    className="flex items-center gap-3 bg-card rounded-xl p-3 border border-border/50"
+                  >
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0"
+                      style={{ backgroundColor: card.color }}
+                    >
+                      <BankLogo bankId={card.icon} size={26} fallbackType={card.type as 'credit' | 'debit' | 'bank'} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{card.name}</p>
+                      <p className="text-xs text-muted-foreground">{card.itemCount} transações</p>
+                    </div>
+                    <span className="text-sm font-bold text-violet-500 flex-shrink-0">{formatCurrency(card.total)}</span>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {/* Detalhes gastos avulsos por categoria */}
+            {directExpensesTotal > 0 && (() => {
+              const byCat = expenses
+                .filter(exp => {
+                  const d = new Date(exp.date);
+                  return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+                })
+                .reduce<Record<string, number>>((acc, exp) => {
+                  acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
+                  return acc;
+                }, {});
+              const catList = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+              return (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Gastos avulsos por categoria</p>
+                  {catList.map(([cat, amount], i) => (
+                    <motion.div
+                      key={cat}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.2 + i * 0.06 }}
+                      className="flex items-center gap-3 bg-card rounded-xl p-3 border border-border/50"
+                    >
+                      <CategoryIcon category={cat} size={36} iconSize={19} className="flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{cat}</p>
+                      </div>
+                      <span className="text-sm font-bold text-emerald-500 flex-shrink-0">{formatCurrency(amount)}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         );
 
@@ -551,7 +602,7 @@ const MonthlyAnalysisPage: React.FC = () => {
                     >
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
-                          <span>{CATEGORY_ICONS[budget.category] || '📋'}</span>
+                          <CategoryIcon category={budget.category} size={28} iconSize={15} />
                           <span className="text-sm font-medium">{budget.category}</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -627,10 +678,10 @@ const MonthlyAnalysisPage: React.FC = () => {
                   >
                     <div className="flex items-center gap-3 mb-3">
                       <div 
-                        className="w-10 h-10 rounded-xl flex items-center justify-center"
+                        className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden"
                         style={{ backgroundColor: card.color }}
                       >
-                        <CreditCard className="w-5 h-5 text-white" />
+                        <BankLogo bankId={card.icon} size={28} fallbackType={card.type as 'credit' | 'debit' | 'bank'} />
                       </div>
                       <div className="flex-1">
                         <p className="font-semibold text-foreground">{card.name}</p>
@@ -662,7 +713,8 @@ const MonthlyAnalysisPage: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.5 }}
-              className="bg-gradient-to-br from-blue-600 to-sky-500 rounded-xl p-5 text-white text-center"
+              className={theme === 'dark' ? 'rounded-xl p-5 text-white text-center' : 'bg-gradient-to-br from-blue-600 to-sky-500 rounded-xl p-5 text-white text-center'}
+              style={theme === 'dark' ? { background: 'linear-gradient(135deg, #0D1A6E 0%, #1A2FA8 100%)' } : undefined}
             >
               <ShieldCheck className="w-8 h-8 mx-auto mb-2 text-white/80" />
               <p className="font-bold text-lg">Resumo de {monthName}</p>
@@ -690,12 +742,13 @@ const MonthlyAnalysisPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pt-16 md:pb-8">
+    <div className="min-h-screen bg-background pb-24 lg:pb-8">
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-blue-600 to-sky-500 text-white px-5 pt-12 pb-6 rounded-b-[2rem] md:rounded-none md:pt-8"
+        className={theme === 'dark' ? 'text-white px-5 pt-12 pb-6 rounded-b-[2rem] lg:rounded-none lg:pt-8' : 'bg-gradient-to-br from-blue-600 to-sky-500 text-white px-5 pt-12 pb-6 rounded-b-[2rem] lg:rounded-none lg:pt-8'}
+        style={theme === 'dark' ? { background: 'linear-gradient(135deg, #0D1A6E 0%, #1A2FA8 100%)' } : undefined}
       >
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-4">
@@ -793,14 +846,14 @@ const MonthlyAnalysisPage: React.FC = () => {
               className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
               onClick={() => setShowBudgetConfig(false)}
             />
-            {/* Bottom Sheet */}
+            {/* Modal centralizado — não fica bloqueado pelo teclado virtual */}
             <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-3xl shadow-2xl border-t border-border/50"
-              style={{ maxHeight: '85vh' }}
+              className="fixed inset-x-4 top-[5%] bottom-[5%] z-50 bg-card rounded-3xl shadow-2xl border border-border/50 flex flex-col overflow-hidden"
+              style={{ maxWidth: 520, margin: '0 auto' }}
             >
               {/* Handle bar */}
               <div className="flex justify-center pt-3 pb-1">
@@ -808,7 +861,7 @@ const MonthlyAnalysisPage: React.FC = () => {
               </div>
 
               {/* Header */}
-              <div className="flex items-center justify-between px-6 pb-4 pt-2">
+              <div className="flex items-center justify-between px-6 pb-4 pt-2 flex-shrink-0">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
                     <Settings className="w-5 h-5 text-primary" />
@@ -827,7 +880,7 @@ const MonthlyAnalysisPage: React.FC = () => {
               </div>
 
               {/* Scrollable Content */}
-              <div className="overflow-y-auto px-6 pb-8" style={{ maxHeight: 'calc(85vh - 100px)' }}>
+              <div className="flex-1 overflow-y-auto overscroll-contain px-6 pb-6">
                 {/* Orçamentos existentes */}
                 {budgets.filter(b => b.month === selectedMonth && b.year === selectedYear).length > 0 && (
                   <div className="mb-6">
@@ -840,7 +893,7 @@ const MonthlyAnalysisPage: React.FC = () => {
                           return (
                             <div key={b.id} className="flex items-center justify-between bg-muted/40 rounded-xl p-3.5">
                               <div className="flex items-center gap-2.5">
-                                <span className="text-lg">{CATEGORY_ICONS[b.category] || '📋'}</span>
+                                <CategoryIcon category={b.category} size={32} iconSize={17} />
                                 <div>
                                   <p className="text-sm font-medium text-foreground">{b.category}</p>
                                   <p className="text-xs text-muted-foreground">
@@ -888,7 +941,7 @@ const MonthlyAnalysisPage: React.FC = () => {
                       >
                         <option value="">Selecione a categoria</option>
                         {CATEGORIES.map(cat => (
-                          <option key={cat} value={cat}>{CATEGORY_ICONS[cat]} {cat}</option>
+                          <option key={cat} value={cat}>{cat}</option>
                         ))}
                       </select>
                     </div>
@@ -896,6 +949,7 @@ const MonthlyAnalysisPage: React.FC = () => {
                       <label className="text-xs text-muted-foreground mb-1.5 block">Limite mensal</label>
                       <input
                         type="number"
+                        inputMode="decimal"
                         placeholder="0,00"
                         value={configLimit}
                         onChange={e => setConfigLimit(e.target.value)}

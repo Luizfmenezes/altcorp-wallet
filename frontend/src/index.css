@@ -51,44 +51,66 @@
     --balance-neutral: 217 91% 60%;
   }
 
+  /* ─── Tema Escuro (AltCorp / C6-inspired) ──────────────────────────────────
+   * Paleta grafite escuro + azul escuro (tom do logo AltCorp)
+   *   Fundo principal  → grafite muito escuro  #111111  (hsl 0 0% 7%)
+   *   Cards            → cinza escuro          #1C1C1C  (hsl 0 0% 11%)
+   *   Superfície       → cinza médio           #242424  (hsl 0 0% 14%)
+   *   Destaque/CTA     → azul escuro logo      #2B4BF2  (hsl 229 87% 56%)
+   *   Header gradiente → azul muito escuro     #0D1A6E → #1A2FA8
+   *   Texto primário   → branco suave          #F0F0F0
+   *   Texto secundário → cinza claro           #9E9E9E
+   *   Borda            → cinza sutil           #2E2E2E
+   * ──────────────────────────────────────────────────────────────────────── */
   .dark {
-    --background: 222 47% 8%;
-    --foreground: 210 40% 98%;
+    --background: 0 0% 7%;
+    --foreground: 0 0% 94%;
 
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 94%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 94%;
 
-    --primary: 217 91% 60%;
+    /* Azul escuro do logo como cor primária */
+    --primary: 229 87% 56%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 94%;
 
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 62%;
 
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 0 0% 18%;
+    --accent-foreground: 0 0% 94%;
 
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 42%;
+    --destructive-foreground: 0 0% 94%;
 
-    --success: 142 76% 36%;
-    --success-foreground: 0 0% 100%;
+    --success: 142 60% 38%;
+    --success-foreground: 0 0% 94%;
 
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning-foreground: 0 0% 94%;
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 217 91% 60%;
+    --border: 0 0% 18%;
+    --input: 0 0% 16%;
+    --ring: 229 87% 56%;
 
-    --nav-background: 222 47% 11%;
-    --nav-foreground: 215 20% 65%;
-    --nav-active: 217 91% 60%;
+    --nav-background: 0 0% 9%;
+    --nav-foreground: 0 0% 62%;
+    --nav-active: 229 87% 56%;
+
+    --balance-positive: 142 60% 38%;
+    --balance-negative: 0 72% 48%;
+    --balance-neutral: 229 87% 56%;
+
+    /* Gradiente do header no tema Escuro */
+    --header-from: #0D1A6E;
+    --header-to: #1A2FA8;
+
+    --radius: 0.625rem;
   }
 }
 
@@ -121,7 +143,7 @@
   }
 
   .floating-button {
-    @apply fixed bottom-24 right-4 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-xl flex items-center justify-center transition-transform duration-200 hover:scale-105 active:scale-95 md:bottom-8 md:right-8;
+    @apply fixed bottom-24 right-4 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-xl flex items-center justify-center transition-transform duration-200 hover:scale-105 active:scale-95 lg:bottom-8 lg:right-8;
   }
 
   .input-finance {
@@ -149,4 +171,12 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* ===== Google Sign-In Button — centralizado ===== */
+.google-btn-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }

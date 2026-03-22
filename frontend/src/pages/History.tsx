@@ -4,6 +4,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { useFinance, getMonthName } from '@/contexts/FinanceContext';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface Transaction {
   id: string;
@@ -20,6 +21,7 @@ interface Transaction {
 const History: React.FC = () => {
   const { incomes, expenses, cards, selectedMonth, selectedYear, setSelectedMonth, setSelectedYear, getTotalIncome } = useFinance();
   const navigate = useNavigate();
+  const { theme } = useTheme();
   const [filterDay, setFilterDay] = useState<number | null>(null);
   const [filterCard, setFilterCard] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
@@ -168,12 +170,13 @@ const History: React.FC = () => {
   const totalOutgoing = filteredTransactions.filter(t => t.type !== 'income').reduce((s, t) => s + t.amount, 0);
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pt-16 md:pb-8">
+    <div className="min-h-screen bg-background pb-24 lg:pb-8">
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-blue-600 to-sky-500 text-white px-5 pt-12 pb-6 rounded-b-[2rem] md:rounded-none md:pt-8"
+        className={theme === 'dark' ? 'text-white px-5 pt-12 pb-6 rounded-b-[2rem] lg:rounded-none lg:pt-8' : 'bg-gradient-to-br from-blue-600 to-sky-500 text-white px-5 pt-12 pb-6 rounded-b-[2rem] lg:rounded-none lg:pt-8'}
+        style={theme === 'dark' ? { background: 'linear-gradient(135deg, #0D1A6E 0%, #1A2FA8 100%)' } : undefined}
       >
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-3 mb-5">

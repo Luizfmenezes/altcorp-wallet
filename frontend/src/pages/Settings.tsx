@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { User, Moon, Sun, LogOut, Palette, Users, Plus, Trash2, Camera, Save, Shield, ImageIcon } from 'lucide-react';
+import { User, Moon, Sun, LogOut, Palette, Users, Plus, Trash2, Camera, Save, Shield, ImageIcon, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,7 +13,7 @@ import authService from '@/services/authService';
 
 const Settings: React.FC = () => {
   const { user, logout, updateProfile, updateProfilePhoto } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { people, addPerson, removePerson } = useFinance();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -183,11 +182,11 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pt-16 md:pb-8">
+    <div className="min-h-screen bg-background pb-24 lg:pb-8">
       {/* Header */}
-      <header className="bg-primary text-primary-foreground p-6 pb-8 rounded-b-3xl md:rounded-none">
+      <header className="bg-primary text-primary-foreground p-6 pb-8 rounded-b-3xl lg:rounded-none">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-xl md:text-2xl font-bold text-center tracking-wide">
+          <h1 className="text-xl lg:text-2xl font-bold text-center tracking-wide">
             CONFIGURAÇÕES
           </h1>
         </div>
@@ -214,6 +213,12 @@ const Settings: React.FC = () => {
                   <img 
                     src={user.profile_photo} 
                     alt="Foto de perfil" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : user?.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt="Foto Google"
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -419,25 +424,62 @@ const Settings: React.FC = () => {
             <Palette className="w-5 h-5 text-primary" />
             <h2 className="font-semibold text-foreground">Aparência</h2>
           </div>
-          
-          <div className="flex items-center justify-between p-3 md:p-4 bg-secondary/50 rounded-xl">
-            <div className="flex items-center gap-3">
-              {theme === 'dark' ? (
-                <Moon className="w-5 h-5 text-primary" />
-              ) : (
-                <Sun className="w-5 h-5 text-warning" />
-              )}
-              <div>
-                <p className="font-medium text-foreground">Modo Escuro</p>
-                <p className="text-xs text-muted-foreground">
-                  {theme === 'dark' ? 'Ativado' : 'Desativado'}
-                </p>
+
+          {/* Seletor de Tema — 2 opções em cards */}
+          <div className="grid grid-cols-2 gap-3 mt-1">
+            {/* Tema Claro */}
+            <button
+              type="button"
+              onClick={() => setTheme('light')}
+              className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all duration-200 cursor-pointer
+                ${theme === 'light'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border bg-secondary/40 hover:bg-secondary/70'}`}
+            >
+              {/* Preview miniatura */}
+              <div className="w-full h-12 rounded-lg overflow-hidden border border-border/40"
+                style={{ background: '#f8f8f8' }}>
+                <div className="h-2 w-full" style={{ background: '#ffffff' }} />
+                <div className="flex gap-1 m-1">
+                  <div className="rounded w-4/5 h-2" style={{ background: '#e0e7ef' }} />
+                  <div className="rounded w-1/5 h-2" style={{ background: '#2B4BF2' }} />
+                </div>
               </div>
-            </div>
-            <Switch
-              checked={theme === 'dark'}
-              onCheckedChange={toggleTheme}
-            />
+              <Sun className="w-4 h-4 text-warning" />
+              <span className="text-xs font-medium text-foreground leading-none">Claro</span>
+              {theme === 'light' && (
+                <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                  <Check className="w-2.5 h-2.5 text-primary-foreground" />
+                </span>
+              )}
+            </button>
+
+            {/* Tema Escuro (C6) */}
+            <button
+              type="button"
+              onClick={() => setTheme('dark')}
+              className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all duration-200 cursor-pointer
+                ${theme === 'dark'
+                  ? 'border-[#2B4BF2] bg-[#2B4BF2]/10'
+                  : 'border-border bg-secondary/40 hover:bg-secondary/70'}`}
+            >
+              <div className="w-full h-12 rounded-lg overflow-hidden border border-border/40"
+                style={{ background: '#111111' }}>
+                <div className="h-2 w-full" style={{ background: '#0D1A6E' }} />
+                <div className="flex gap-1 m-1">
+                  <div className="rounded w-4/5 h-2" style={{ background: '#242424' }} />
+                  <div className="rounded w-1/5 h-2" style={{ background: '#2B4BF2' }} />
+                </div>
+              </div>
+              <Moon className="w-4 h-4" style={{ color: '#2B4BF2' }} />
+              <span className="text-xs font-medium text-foreground leading-none">Escuro</span>
+              {theme === 'dark' && (
+                <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center"
+                  style={{ background: '#2B4BF2' }}>
+                  <Check className="w-2.5 h-2.5 text-white" />
+                </span>
+              )}
+            </button>
           </div>
         </section>
 

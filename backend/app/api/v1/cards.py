@@ -160,6 +160,10 @@ def create_invoice_item(
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     
+    # Validar valor máximo (DECIMAL(15,2) suporta até 9.999.999.999.999,99)
+    if item.amount > 9999999999999.99 or item.amount < -9999999999999.99:
+        raise HTTPException(status_code=400, detail="Valor excede o limite permitido")
+    
     created_items = []
     item_data = item.dict(exclude={'installments'})
     

@@ -1,15 +1,42 @@
 import api from './api';
 
 export interface LoginCredentials {
-  username: string; // Username for login
+  username: string; // Username or email for login
   password: string;
 }
 
 export interface RegisterData {
-  username: string;
   name: string;
+  email: string;
+  username: string;
   password: string;
-  email?: string; // Email is optional
+  confirm_password: string;
+}
+
+export interface RegisterResponse {
+  message: string;
+  email: string;
+  requires_verification: boolean;
+}
+
+export interface VerifyEmailData {
+  email: string;
+  code: string;
+}
+
+export interface ForgotPasswordData {
+  email: string;
+}
+
+export interface ResetPasswordData {
+  email: string;
+  code: string;
+  new_password: string;
+  confirm_password: string;
+}
+
+export interface GoogleLoginData {
+  credential: string;
 }
 
 export interface User {
@@ -20,6 +47,9 @@ export interface User {
   role: 'admin' | 'user' | 'temp';
   is_active: boolean;
   onboarding_completed: boolean;
+  email_verified: boolean;
+  google_id?: string;
+  avatar_url?: string;
   profile_photo?: string;
   created_at: string;
 }
@@ -50,15 +80,64 @@ class AuthService {
     localStorage.setItem('lastLoginUser', JSON.stringify({
       username: user.username,
       name: user.name,
-      profile_photo: user.profile_photo || null,
+      profile_photo: user.profile_photo || user.avatar_url || null,
     }));
     
     return user;
   }
 
-  async register(userData: RegisterData): Promise<User> {
-    const { data } = await api.post<User>('/auth/register', userData);
+  async register(userData: RegisterData): Promise<RegisterResponse> {
+    const { data } = await api.post<RegisterResponse>('/auth/register', userData);
     return data;
+  }
+
+  async verifyEmail(verifyData: VerifyEmailData): Promise<User> {
+    const { data } = await api.post<AuthResponse>('/auth/verify-email', verifyData);
+    
+    localStorage.setItem('token', data.access_token);
+    
+    const user = await this.getCurrentUser();
+    localStorage.setItem('user', JSON.stringify(user));
+    
+    localStorage.setItem('lastLoginUser', JSON.stringify({
+      username: user.username,
+      name: user.name,
+      profile_photo: user.profile_photo || user.avatar_url || null,
+    }));
+    
+    return user;
+  }
+
+  async resendCode(email: string): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>('/auth/resend-code', { email });
+    return data;
+  }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>('/auth/forgot-password', { email });
+    return data;
+  }
+
+  async resetPassword(resetData: ResetPasswordData): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>('/auth/reset-password', resetData);
+    return data;
+  }
+
+  async googleLogin(credential: string): Promise<User> {
+    const { data } = await api.post<AuthResponse>('/auth/google-login', { credential });
+    
+    localStorage.setItem('token', data.access_token);
+    
+    const user = await this.getCurrentUser();
+    localStorage.setItem('user', JSON.stringify(user));
+    
+    localStorage.setItem('lastLoginUser', JSON.stringify({
+      username: user.username,
+      name: user.name,
+      profile_photo: user.profile_photo || user.avatar_url || null,
+    }));
+    
+    return user;
   }
 
   async getCurrentUser(): Promise<User> {
