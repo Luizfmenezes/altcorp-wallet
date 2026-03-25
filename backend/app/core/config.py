@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # CORS
-    ALLOWED_ORIGINS: str = "http://localhost,http://localhost:80,http://localhost:3000,http://localhost:8080"
+    # CORS - aceita IP local + domínio de produção
+    ALLOWED_ORIGINS: str = "http://localhost,http://localhost:80,http://localhost:3000,http://localhost:8080,http://192.168.15.5:8080,https://wallet.altcorphub.com"
     
     # Domain
     DOMAIN: str = "localhost"
@@ -28,15 +28,28 @@ class Settings(BaseSettings):
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
     
+    # Groq AI (gratuito - transcrição Whisper + LLaMA 3.3 70B)
+    # Obtenha em: https://console.groq.com/keys
+    GROQ_API_KEY: str = ""
+    
     def get_allowed_origins(self) -> List[str]:
-        """Parse ALLOWED_ORIGINS string into list"""
+        """Parse ALLOWED_ORIGINS string into list, sempre inclui IP e domínio."""
         if not self.ALLOWED_ORIGINS:
-            return []
-        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+            return [
+                "http://192.168.15.5:8080",
+                "https://wallet.altcorphub.com",
+            ]
+        origins = [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+        # Garante que os essenciais estejam sempre presentes
+        essentials = ["http://192.168.15.5:8080", "https://wallet.altcorphub.com"]
+        for e in essentials:
+            if e not in origins:
+                origins.append(e)
+        return origins
     
     class Config:
         env_file = ".env"
         case_sensitive = True
-        extra = "ignore"  # <--- ESSA LINHA SALVA O SISTEMA
+        extra = "ignore"
 
 settings = Settings()

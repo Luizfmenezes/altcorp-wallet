@@ -1,5 +1,17 @@
+﻿##########################################################
+# AltCorp Wallet - Docker Compose
+# ========================================================
+# DEV:  docker compose --profile dev up --build
+# PROD: docker compose --profile prod up --build -d
+#
+# Acesso DEV:  http://192.168.15.5:8080
+# Acesso PROD: https://wallet.altcorphub.com
+##########################################################
+
 services:
-  # PostgreSQL Database
+  # ────────────────────────────────────────────────
+  # PostgreSQL Database (compartilhado dev & prod)
+  # ────────────────────────────────────────────────
   database:
     image: postgres:16-alpine
     container_name: altcorp-wallet-db
@@ -26,12 +38,16 @@ services:
       timeout: 5s
       retries: 5
 
-  # Backend API (FastAPI)
-  backend:
+  # ────────────────────────────────────────────────
+  # Backend API - DEVELOPMENT (hot-reload)
+  # ────────────────────────────────────────────────
+  backend-dev:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: altcorp-wallet-backend
+      target: development
+    container_name: altcorp-wallet-backend-dev
+    profiles: ["dev"]
     restart: unless-stopped
     env_file:
       - .env
@@ -39,12 +55,14 @@ services:
         required: false
     environment:
       TZ: America/Sao_Paulo
-      DATABASE_URL: postgresql://${POSTGRES_USER:-walletuser}:${POSTGRES_PASSWORD:-walletpass123secure}@database:5432/${POSTGRES_DB:-altcorp_wallet}
-      API_HOST: 0.0.0.0
-      API_PORT: 8000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-walletuser}:${POSTGRES_PASSWORD:-walletpass123}@database:5432/${POSTGRES_DB:-altcorp_wallet}
+      API_HOST: "0.0.0.0"
+      API_PORT: "8000"
+      DEBUG: "true"
       ALGORITHM: HS256
-      ACCESS_TOKEN_EXPIRE_MINUTES: 30
-      # ALLOWED_ORIGINS, SECRET_KEY e DEBUG vêm do env_file (.env ou .env.local)
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      ALLOWED_ORIGINS: "http://localhost:8080,http://localhost:3000,http://192.168.15.5:8080,https://wallet.altcorphub.com"
+      DOMAIN: "192.168.15.5"
     ports:
       - "8000:8000"
     networks:
@@ -54,17 +72,60 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips '*'
-# Frontend (React + Nginx)
-  frontend:
+      - /app/__pycache__
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips '*'
+
+  # ────────────────────────────────────────────────
+  # Backend API - PRODUCTION (sem reload, otimizado)
+  # ────────────────────────────────────────────────
+  backend-prod:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: altcorp-wallet-backend
+    profiles: ["prod"]
+    restart: unless-stopped
+    env_file:
+      - .env
+      - path: .env.local
+        required: false
+    environment:
+      TZ: America/Sao_Paulo
+      DATABASE_URL: postgresql://${POSTGRES_USER:-walletuser}:${POSTGRES_PASSWORD:-walletpass123}@database:5432/${POSTGRES_DB:-altcorp_wallet}
+      API_HOST: "0.0.0.0"
+      API_PORT: "8000"
+      DEBUG: "false"
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      ALLOWED_ORIGINS: "http://192.168.15.5:8080,https://wallet.altcorphub.com"
+      DOMAIN: "wallet.altcorphub.com"
+    ports:
+      - "8000:8000"
+    networks:
+      - wallet-network
+    depends_on:
+      database:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+
+  # ────────────────────────────────────────────────
+  # Frontend - DEVELOPMENT (nginx HTTP em :8080)
+  # ────────────────────────────────────────────────
+  frontend-dev:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # Passa a variável do seu arquivo .env/.env.local para o build do Vite
-        - VITE_API_URL=${VITE_API_URL}
-        - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
-    container_name: altcorp-wallet-frontend
+        VITE_API_URL: /api/v1
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+        NGINX_CONF: nginx.conf
+    container_name: altcorp-wallet-frontend-dev
+    profiles: ["dev"]
     restart: unless-stopped
     env_file:
       - .env
@@ -75,43 +136,54 @@ services:
     networks:
       - wallet-network
     depends_on:
-      - backend
-    environment:
-      TZ: America/Sao_Paulo
-      VITE_API_URL: ${VITE_API_URL}
-
-  # Ollama — LLM local
-  ollama:
-    image: ollama/ollama:latest
-    container_name: altcorp-wallet-ollama
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    networks:
-      - wallet-network
+      - backend-dev
     environment:
       TZ: America/Sao_Paulo
 
-  # AI Audio — Transcrição + LLM
-  ai-audio:
+  # ────────────────────────────────────────────────
+  # Frontend - PRODUCTION (nginx + SSL em :8080)
+  # ────────────────────────────────────────────────
+  frontend-prod:
     build:
-      context: ./ai-audio
+      context: ./frontend
       dockerfile: Dockerfile
-    container_name: altcorp-wallet-ai-audio
+      args:
+        VITE_API_URL: /api/v1
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+        NGINX_CONF: nginx.prod.conf
+    container_name: altcorp-wallet-frontend
+    profiles: ["prod"]
     restart: unless-stopped
+    env_file:
+      - .env
+      - path: .env.local
+        required: false
     ports:
-      - "8001:8001"
+      - "8080:80"
+      - "443:443"
     networks:
       - wallet-network
     depends_on:
-      - ollama
+      - backend-prod
+    volumes:
+      - ssl_certs:/etc/nginx/ssl:ro
+      - certbot_www:/var/www/certbot:ro
     environment:
       TZ: America/Sao_Paulo
-      OLLAMA_BASE_URL: http://ollama:11434
-      OLLAMA_MODEL: llama3.2:1b
-      WHISPER_MODEL_SIZE: small
+
+  # ────────────────────────────────────────────────
+  # Certbot - Renovação automática de SSL (somente prod)
+  # ────────────────────────────────────────────────
+  certbot:
+    image: certbot/certbot:latest
+    container_name: altcorp-wallet-certbot
+    profiles: ["prod"]
+    volumes:
+      - ssl_certs:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done;'"
+    depends_on:
+      - frontend-prod
 
 networks:
   wallet-network:
@@ -121,5 +193,7 @@ networks:
 volumes:
   postgres_data:
     name: altcorp-wallet-postgres-data
-  ollama_data:
-    name: altcorp-wallet-ollama-data
+  ssl_certs:
+    name: altcorp-wallet-ssl-certs
+  certbot_www:
+    name: altcorp-wallet-certbot-www

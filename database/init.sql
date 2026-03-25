@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
     google_id VARCHAR(255) UNIQUE,
     avatar_url TEXT,
     profile_photo TEXT,
+    people JSONB NOT NULL DEFAULT '[]',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -64,6 +65,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     amount DECIMAL(15, 2) NOT NULL,
     owner VARCHAR(100) NOT NULL,
     is_recurring BOOLEAN DEFAULT FALSE,
+    is_paid BOOLEAN NOT NULL DEFAULT FALSE,
     frequency frequency_type,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -75,7 +77,10 @@ CREATE TABLE IF NOT EXISTS cards (
     name VARCHAR(255) NOT NULL,
     type card_type NOT NULL,
     color VARCHAR(50) NOT NULL,
+    icon VARCHAR(100),
+    closing_day INTEGER,
     due_day INTEGER,
+    credit_limit DECIMAL(15,2),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

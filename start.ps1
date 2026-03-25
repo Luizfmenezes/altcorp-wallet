@@ -1,38 +1,61 @@
-# AltCorp Wallet - Startup Script
-# PowerShell script for Windows
+# ============================================
+# AltCorp Wallet - Start Script (PowerShell)
+# ============================================
+# Uso:
+#   .\start.ps1          → Inicia em modo DEV
+#   .\start.ps1 prod     → Inicia em modo PROD
+#   .\start.ps1 stop     → Para todos os containers
+#   .\start.ps1 logs     → Mostra logs
+# ============================================
 
-Write-Host "🚀 Iniciando AltCorp Wallet..." -ForegroundColor Green
-Write-Host ""
+param(
+    [Parameter(Position=0)]
+    [ValidateSet("dev", "prod", "stop", "logs", "restart", "build")]
+    [string]$Mode = "dev"
+)
 
-# Check if .env exists
+$ErrorActionPreference = "Stop"
+
+# Garante .env existe
 if (!(Test-Path .env)) {
-    Write-Host "⚠️  Arquivo .env não encontrado. Copiando de .env.example..." -ForegroundColor Yellow
+    Write-Host "`u{26A0}`u{FE0F}  Arquivo .env não encontrado. Copiando de .env.example..." -ForegroundColor Yellow
     Copy-Item .env.example .env
-    Write-Host "✅ Arquivo .env criado. Configure-o se necessário." -ForegroundColor Green
-    Write-Host ""
+    Write-Host "`u{2705} Arquivo .env criado. Configure as variáveis antes de continuar." -ForegroundColor Green
 }
 
-# Build and start containers
-Write-Host "🔨 Construindo e iniciando containers..." -ForegroundColor Cyan
-docker-compose up -d --build
-
-# Wait for services to be healthy
-Write-Host ""
-Write-Host "⏳ Aguardando serviços iniciarem..." -ForegroundColor Yellow
-Start-Sleep -Seconds 10
-
-# Check services status
-Write-Host ""
-Write-Host "📊 Status dos serviços:" -ForegroundColor Cyan
-docker-compose ps
-
-Write-Host ""
-Write-Host "✅ AltCorp Wallet está rodando!" -ForegroundColor Green
-Write-Host ""
-Write-Host "🌐 Acesse:" -ForegroundColor Cyan
-Write-Host "   Frontend:  http://localhost" -ForegroundColor White
-Write-Host "   Backend:   http://localhost:8000" -ForegroundColor White
-Write-Host "   API Docs:  http://localhost:8000/api/docs" -ForegroundColor White
-Write-Host ""
-Write-Host "📝 Para ver os logs: docker-compose logs -f" -ForegroundColor Yellow
-Write-Host "🛑 Para parar: docker-compose down" -ForegroundColor Yellow
+switch ($Mode) {
+    "dev" {
+        Write-Host "`n`u{1F680} Iniciando AltCorp Wallet em modo DESENVOLVIMENTO..." -ForegroundColor Cyan
+        docker compose --profile dev up --build
+        Write-Host "`n`u{1F310} Acesso: http://192.168.15.5:8080" -ForegroundColor Green
+        Write-Host "`u{1F4CB} API Docs: http://192.168.15.5:8000/api/docs" -ForegroundColor Green
+    }
+    "prod" {
+        Write-Host "`n`u{1F680} Iniciando AltCorp Wallet em modo PRODUÇÃO..." -ForegroundColor Cyan
+        docker compose --profile prod up --build -d
+        Start-Sleep -Seconds 5
+        docker compose --profile prod ps
+        Write-Host "`n`u{2705} Rodando em background!" -ForegroundColor Green
+        Write-Host "`u{1F310} HTTPS: https://wallet.altcorphub.com" -ForegroundColor Green
+        Write-Host "`u{1F310} Local: http://192.168.15.5:8080" -ForegroundColor Green
+        Write-Host "`u{1F4DD} Logs: .\start.ps1 logs" -ForegroundColor Yellow
+    }
+    "stop" {
+        Write-Host "`u{23F9}`u{FE0F}  Parando todos os containers..." -ForegroundColor Yellow
+        docker compose --profile dev --profile prod down
+        Write-Host "`u{2705} Parado." -ForegroundColor Green
+    }
+    "logs" {
+        docker compose --profile dev --profile prod logs -f --tail=100
+    }
+    "restart" {
+        Write-Host "`u{1F504} Reiniciando..." -ForegroundColor Yellow
+        docker compose --profile dev --profile prod down
+        docker compose --profile dev up --build
+    }
+    "build" {
+        Write-Host "`u{1F528} Reconstruindo imagens (sem cache)..." -ForegroundColor Yellow
+        docker compose --profile dev --profile prod build --no-cache
+        Write-Host "`u{2705} Build completo." -ForegroundColor Green
+    }
+}

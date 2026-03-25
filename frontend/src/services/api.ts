@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Esta linha agora lerá o que você configurou no seu .env da raiz
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+// Usa path relativo — o nginx faz o proxy para o backend
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

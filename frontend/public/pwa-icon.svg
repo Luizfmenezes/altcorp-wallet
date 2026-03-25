@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fundo -->
+  <rect width="512" height="512" rx="96" fill="#0f172a"/>
+  <!-- Carteira - corpo -->
+  <rect x="80" y="160" width="352" height="220" rx="24" fill="#1e293b" stroke="#334155" stroke-width="4"/>
+  <!-- Carteira - aba superior -->
+  <rect x="80" y="140" width="352" height="48" rx="16" fill="#334155"/>
+  <!-- Bolso interno -->
+  <rect x="288" y="210" width="120" height="80" rx="12" fill="#0f172a" stroke="#475569" stroke-width="2"/>
+  <!-- Moeda/símbolo $ -->
+  <text x="348" y="262" font-family="Arial, sans-serif" font-size="42" font-weight="700" fill="#38bdf8" text-anchor="middle">$</text>
+  <!-- Linhas de cartão -->
+  <rect x="104" y="224" width="148" height="12" rx="6" fill="#475569"/>
+  <rect x="104" y="248" width="100" height="10" rx="5" fill="#334155"/>
+  <rect x="104" y="268" width="120" height="10" rx="5" fill="#334155"/>
+</svg>

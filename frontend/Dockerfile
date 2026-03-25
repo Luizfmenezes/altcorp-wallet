@@ -1,38 +1,41 @@
-# Build stage
+# ============================================
+# Frontend Dockerfile - Build + Nginx
+# ============================================
+
+# ── Build stage ───────────────────────────────
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Accept build arguments
-ARG VITE_API_URL
+# Build arguments
+ARG VITE_API_URL=/api/v1
+ARG VITE_GOOGLE_CLIENT_ID=
 ENV VITE_API_URL=$VITE_API_URL
-
-ARG VITE_GOOGLE_CLIENT_ID
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 
-# Copy package files
-COPY package.json bun.lockb ./
-
 # Install dependencies
+COPY package.json bun.lockb ./
 RUN npm install -g bun && bun install
 
-# Copy source code
+# Copy source and build
 COPY . .
+RUN echo "Building with VITE_API_URL=$VITE_API_URL" && bun run build
 
-# Build the application with environment variables
-RUN echo "Building with VITE_API_URL=$VITE_API_URL VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID" && bun run build
-
-# Production stage
+# ── Production stage (Nginx) ─────────────────
 FROM nginx:alpine
 
-# Copy built assets from builder stage
+# Qual nginx.conf usar (dev=nginx.conf, prod=nginx.prod.conf)
+ARG NGINX_CONF=nginx.conf
+
+# Copy built assets
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY ${NGINX_CONF} /etc/nginx/conf.d/default.conf
 
-# Expose port
-EXPOSE 80
+# Para prod: certbot challenge dir
+RUN mkdir -p /var/www/certbot
 
-# Start nginx
+EXPOSE 80 443
+
 CMD ["nginx", "-g", "daemon off;"]

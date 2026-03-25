@@ -101,8 +101,9 @@ const VoiceAdd: React.FC = () => {
     if (stage === 'recording') {
       setElapsed(0);
       timerRef.current = setInterval(() => setElapsed((p) => p + 1), 1000);
-    } else {
-      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    } else if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [stage]);
@@ -141,7 +142,12 @@ const VoiceAdd: React.FC = () => {
     const fd = new FormData();
     fd.append('file', blob, 'audio.webm');
     try {
-      const res = await fetch('/ai-audio/processar-audio', { method: 'POST', body: fd });
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/v1/ai/process-audio', {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd,
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({ detail: 'Erro desconhecido' }));
         throw new Error(body.detail || `Erro ${res.status}`);

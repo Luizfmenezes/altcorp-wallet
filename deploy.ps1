@@ -59,12 +59,12 @@ $envChoice = Read-Host "Digite 1 ou 2"
 if ($envChoice -eq "1") {
     $ENV = "development"
     $COMPOSE_FILE = "docker-compose.yml"
-    $ENV_FILE = ".env.development"
+    $ENV_FILE = ".env"
     Print-Info "Ambiente selecionado: DESENVOLVIMENTO"
 } elseif ($envChoice -eq "2") {
     $ENV = "production"
-    $COMPOSE_FILE = "docker-compose.prod.yml"
-    $ENV_FILE = ".env.production"
+    $COMPOSE_FILE = "docker-compose.yml"
+    $ENV_FILE = ".env"
     Print-Info "Ambiente selecionado: PRODUÇÃO"
 } else {
     Print-Error "Opção inválida"
@@ -73,20 +73,17 @@ if ($envChoice -eq "1") {
 
 # Check if env file exists
 if (-not (Test-Path $ENV_FILE)) {
-    Print-Error "Arquivo $ENV_FILE não encontrado!"
+    Print-Error "Arquivo $ENV_FILE não encontrado! Copie .env.example para .env e configure as variáveis."
     exit 1
 }
 
-# Copy env file
 Write-Host ""
-Print-Info "Copiando arquivo de ambiente..."
-Copy-Item $ENV_FILE .env -Force
-Print-Success "Arquivo .env configurado"
+Print-Success "Arquivo de ambiente encontrado: $ENV_FILE"
 
 # If production, check for SSL certificates
 if ($ENV -eq "production") {
     Write-Host ""
-    Print-Warning "ATENÇÃO: Produção requer certificados SSL!"
+    Print-Warning "ATENÇÃO: Produção com TLS externo requer certificados SSL no host/proxy reverso."
     
     if (-not (Test-Path "ssl") -or -not (Test-Path "ssl/fullchain.pem") -or -not (Test-Path "ssl/privkey.pem")) {
         Print-Warning "Certificados SSL não encontrados em .\ssl\"
@@ -108,6 +105,11 @@ if ($ENV -eq "production") {
     } else {
         Print-Success "Certificados SSL encontrados"
     }
+}
+
+# Validate optional AI configuration
+if (-not $env:GROQ_API_KEY -and -not (Select-String -Path $ENV_FILE -Pattern '^GROQ_API_KEY=' -Quiet)) {
+    Print-Warning "GROQ_API_KEY não encontrada. A funcionalidade de voz/IA ficará indisponível até configurar essa chave."
 }
 
 # Stop existing containers
@@ -202,22 +204,14 @@ Write-Host ""
 
 if ($ENV -eq "development") {
     Write-Host "🌐 Acesse a aplicação:" -ForegroundColor Cyan
-    Write-Host "   Frontend: http://localhost" -ForegroundColor White
+    Write-Host "   Frontend: http://localhost:8080" -ForegroundColor White
     Write-Host "   Backend API: http://localhost:8000" -ForegroundColor White
     Write-Host "   API Docs: http://localhost:8000/api/docs" -ForegroundColor White
 } elseif ($ENV -eq "production") {
     Write-Host "🌐 Acesse a aplicação:" -ForegroundColor Cyan
-    if ((Test-Path "ssl") -and (Test-Path "ssl/fullchain.pem")) {
-        Write-Host "   Frontend: https://wallet.altcorphub.com" -ForegroundColor White
-        Write-Host "   Backend API: https://wallet.altcorphub.com/api/v1" -ForegroundColor White
-        Write-Host "   API Docs: https://wallet.altcorphub.com/api/docs" -ForegroundColor White
-    } else {
-        Write-Host "   Frontend: http://wallet.altcorphub.com" -ForegroundColor White
-        Write-Host "   Backend API: http://wallet.altcorphub.com/api/v1" -ForegroundColor White
-        Write-Host "   API Docs: http://wallet.altcorphub.com/api/docs" -ForegroundColor White
-        Write-Host ""
-        Print-Warning "SSL não configurado! Configure certificados para HTTPS."
-    }
+    Write-Host "   Frontend: https://wallet.altcorphub.com" -ForegroundColor White
+    Write-Host "   Backend API: https://wallet.altcorphub.com/api/v1" -ForegroundColor White
+    Write-Host "   API Docs: https://wallet.altcorphub.com/api/docs" -ForegroundColor White
 }
 
 Write-Host ""
