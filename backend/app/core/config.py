@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/google-callback"
+    FRONTEND_URL: str = "http://localhost:8080"
     
     # Groq AI (gratuito - transcrição Whisper + LLaMA 3.3 70B)
     # Obtenha em: https://console.groq.com/keys

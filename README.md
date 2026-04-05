@@ -43,10 +43,16 @@ cd altcorp-wallet
 cp .env.example .env
 # Edite .env com suas configurações
 
-# 3. Inicie os containers
-docker-compose up -d --build
+# 3. Inicie os containers para VM/LAN
+docker compose --profile vm up --build -d
 
-# 4. Acesse http://localhost
+# 4. Acesse http://192.168.15.5:8080
+```
+
+Para domínio público com HTTPS, use:
+
+```bash
+docker compose --profile prod up --build -d
 ```
 
 ```bash
@@ -60,18 +66,19 @@ cp .env.example .env
 ### 3. Inicie os containers
 
 ```bash
-# Construir e iniciar todos os serviços
-docker-compose up -d --build
+# Construir e iniciar todos os serviços para VM/LAN
+docker compose --profile vm up --build -d
 
-# Ou apenas iniciar (sem rebuild)
-docker-compose up -d
+# Ou apenas iniciar desenvolvimento local
+docker compose --profile dev up
 ```
 
 ### 4. Acesse a aplicação
 
-- **Frontend**: http://localhost
-- **Backend API**: http://localhost:8000
-- **Documentação API**: http://localhost:8000/api/docs
+- **Frontend VM/LAN**: http://192.168.15.5:8080
+- **Backend API VM/LAN**: http://192.168.15.5:8000
+- **Documentação API VM/LAN**: http://192.168.15.5:8000/api/docs
+- **Frontend Produção**: https://wallet.altcorphub.com
 - **Database**: localhost:5432
 
 ## 📦 Estrutura do Projeto

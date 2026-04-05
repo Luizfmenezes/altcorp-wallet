@@ -52,6 +52,7 @@ class User(Base):
     avatar_url = Column(String, nullable=True)
     profile_photo = Column(String, nullable=True)  # Base64 encoded image
     people = Column(JSON, nullable=True, default=list)  # Lista de pessoas do usuário
+    last_identity_change_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     

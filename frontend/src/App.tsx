@@ -15,6 +15,7 @@ import Expenses from "./pages/Expenses";
 import Wallet from "./pages/Wallet";
 import CardDetail from "./pages/CardDetail";
 import Settings from "./pages/Settings";
+import ChangePassword from "./pages/ChangePassword";
 import UserManagement from "./pages/UserManagement";
 import History from "./pages/History";
 import MonthlyAnalysisPage from "./pages/MonthlyAnalysisPage";
@@ -180,6 +181,16 @@ const AppRoutes = () => {
             <ProtectedRoute>
               <AppLayout>
                 <Settings />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings/change-password"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <ChangePassword />
               </AppLayout>
             </ProtectedRoute>
           }

@@ -10,6 +10,7 @@ from app.database import models
 from app.services.cleanup_service import cleanup_loop
 import asyncio
 import logging
+from sqlalchemy import text
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -17,6 +18,19 @@ logger = logging.getLogger(__name__)
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
+
+
+def ensure_runtime_schema_updates() -> None:
+    """Aplica ajustes simples de schema necessários em bases já existentes."""
+    statements = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_identity_change_at TIMESTAMPTZ"
+    ]
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
+
+
+ensure_runtime_schema_updates()
 
 
 @asynccontextmanager

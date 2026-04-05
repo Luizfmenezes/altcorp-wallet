@@ -14,6 +14,20 @@ from app.core.dependencies import get_current_user
 
 router = APIRouter()
 
+
+def _split_amount_evenly(total: float, parts: int) -> List[float]:
+    """Divide valor em partes iguais mantendo consistência de centavos."""
+    if parts <= 0:
+        return [round(total, 2)]
+    total_cents = int(round(total * 100))
+    base = total_cents // parts
+    remainder = total_cents % parts
+    values = []
+    for idx in range(parts):
+        cents = base + (1 if idx < remainder else 0)
+        values.append(cents / 100)
+    return values
+
 @router.get("/", response_model=List[CardResponse])
 def get_cards(
     skip: int = 0,
@@ -165,35 +179,57 @@ def create_invoice_item(
         raise HTTPException(status_code=400, detail="Valor excede o limite permitido")
     
     created_items = []
-    item_data = item.dict(exclude={'installments'})
-    
-    # Handle installments
-    if item.installments and item.installments > 1:
-        installment_amount = round(item.amount / item.installments, 2)
-        base_date = datetime.fromisoformat(item.date)
-        
-        for i in range(item.installments):
-            installment_date = base_date + relativedelta(months=i)
-            
+    item_data = item.dict(exclude={'installments', 'split_between'})
+
+    owners = [o.strip() for o in (item.split_between or []) if isinstance(o, str) and o.strip()]
+    if not owners:
+        owners = [item.owner.strip() if item.owner and item.owner.strip() else "Eu"]
+
+    # Preserva ordem removendo duplicatas
+    owners = list(dict.fromkeys(owners))
+
+    installments_count = item.installments if item.installments and item.installments > 1 else 1
+    installment_amounts = _split_amount_evenly(item.amount, installments_count)
+    base_date = datetime.fromisoformat(item.date)
+
+    for installment_index, installment_amount in enumerate(installment_amounts):
+        installment_date = base_date + relativedelta(months=installment_index)
+        owner_amounts = _split_amount_evenly(installment_amount, len(owners))
+
+        for owner_index, owner_name in enumerate(owners):
+            installment_info = None
+            if installments_count > 1 or len(owners) > 1:
+                installment_info = {}
+                if installments_count > 1:
+                    installment_info.update({
+                        'current_installment': installment_index + 1,
+                        'total_installments': installments_count,
+                        'original_amount': item.amount
+                    })
+                if len(owners) > 1:
+                    installment_info['split'] = {
+                        'owners': owners,
+                        'owner_share': owner_amounts[owner_index],
+                        'group_size': len(owners),
+                        'installment_total': installment_amount,
+                    }
+
             db_item = InvoiceItem(
-                **{**item_data, 
-                   'date': installment_date.strftime('%Y-%m-%d'),
-                   'description': f"{item.description} ({i+1}/{item.installments})",
-                   'amount': installment_amount,
-                   'installment_info': {
-                       'current_installment': i + 1,
-                       'total_installments': item.installments,
-                       'original_amount': item.amount
-                   }
+                **{
+                    **item_data,
+                    'date': installment_date.strftime('%Y-%m-%d'),
+                    'description': (
+                        f"{item.description} ({installment_index + 1}/{installments_count})"
+                        if installments_count > 1 else item.description
+                    ),
+                    'amount': owner_amounts[owner_index],
+                    'owner': owner_name,
+                    'installment_info': installment_info,
                 },
                 card_id=card_id
             )
             db.add(db_item)
             created_items.append(db_item)
-    else:
-        db_item = InvoiceItem(**item_data, card_id=card_id)
-        db.add(db_item)
-        created_items.append(db_item)
     
     db.commit()
     for item in created_items:

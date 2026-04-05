@@ -4,6 +4,7 @@
 # ============================================
 # Uso:
 #   ./start.sh          → Inicia em modo DEV
+#   ./start.sh vm       → Inicia em modo VM/LAN
 #   ./start.sh prod     → Inicia em modo PROD
 #   ./start.sh stop     → Para todos os containers
 #   ./start.sh logs     → Mostra logs
@@ -22,8 +23,19 @@ fi
 case "$MODE" in
     dev)
         echo "🚀 Iniciando em modo DESENVOLVIMENTO..."
-        echo "� Acesso: http://192.168.15.5:8080"
+        echo "🌐 Acesso: http://localhost:8080"
         docker compose --profile dev up --build
+        ;;
+    vm)
+        echo "🚀 Iniciando em modo VM/LAN..."
+        docker compose --profile vm up --build -d
+        sleep 5
+        docker compose --profile vm ps
+        echo ""
+        echo "✅ Rodando em background!"
+        echo "🌐 Frontend: http://192.168.15.5:8080"
+        echo "🌐 API Docs: http://192.168.15.5:8000/api/docs"
+        echo "📝 Logs: ./start.sh logs"
         ;;
     prod)
         echo "🚀 Iniciando em modo PRODUÇÃO..."
@@ -38,20 +50,20 @@ case "$MODE" in
         ;;
     stop)
         echo "⏹️  Parando containers..."
-        docker compose --profile dev --profile prod down
+        docker compose --profile dev --profile vm --profile prod down
         echo "✅ Parado."
         ;;
     logs)
-        docker compose --profile dev --profile prod logs -f --tail=100
+        docker compose --profile dev --profile vm --profile prod logs -f --tail=100
         ;;
     restart)
         echo "🔄 Reiniciando..."
-        docker compose --profile dev --profile prod down
+        docker compose --profile dev --profile vm --profile prod down
         docker compose --profile dev up --build
         ;;
     build)
         echo "🔨 Reconstruindo (sem cache)..."
-        docker compose --profile dev --profile prod build --no-cache
+        docker compose --profile dev --profile vm --profile prod build --no-cache
         echo "✅ Build completo."
         ;;
     ssl)
@@ -69,7 +81,7 @@ case "$MODE" in
         docker compose --profile prod restart frontend-prod
         ;;
     *)
-        echo "Uso: $0 {dev|prod|stop|logs|restart|build|ssl}"
+        echo "Uso: $0 {dev|vm|prod|stop|logs|restart|build|ssl}"
         exit 1
         ;;
 esac

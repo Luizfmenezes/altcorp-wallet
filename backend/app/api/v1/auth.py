@@ -1,8 +1,15 @@
+from datetime import datetime, timedelta, timezone
+from urllib.parse import urlencode
+import logging
+
+import requests
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
+from jose import JWTError, jwt
 
 from app.database.session import get_db
 from app.database.models import User, UserRole, VerificationType
@@ -11,6 +18,7 @@ from app.core.config import settings
 from app.schemas.schemas import (
     RegisterRequest, VerifyEmailRequest, ResendCodeRequest,
     ForgotPasswordRequest, ResetPasswordRequest, GoogleLoginRequest,
+    GoogleRedirectUrlResponse,
     Token
 )
 from app.services.email_service import (
@@ -19,6 +27,71 @@ from app.services.email_service import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def _build_google_state_token() -> str:
+    payload = {
+        "purpose": "google_oauth_state",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=10),
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def _validate_google_state_token(state: str) -> None:
+    try:
+        payload = jwt.decode(state, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("purpose") != "google_oauth_state":
+            raise JWTError("Token de state inválido")
+    except JWTError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="State OAuth inválido ou expirado"
+        ) from exc
+
+
+def _upsert_google_user(db: Session, google_id: str, email: str, name: str, picture: str) -> User:
+    user = db.query(User).filter(
+        (User.google_id == google_id) | (User.email == email)
+    ).first()
+
+    if user:
+        if not user.google_id:
+            user.google_id = google_id
+        if picture:
+            user.avatar_url = picture
+        db.commit()
+        return user
+
+    user_count = db.query(User).count()
+    role = UserRole.admin if user_count == 0 else UserRole.user
+
+    base_username = email.split("@")[0].lower()
+    username = base_username
+    counter = 1
+    while db.query(User).filter(User.username == username).first():
+        username = f"{base_username}{counter}"
+        counter += 1
+
+    user = User(
+        username=username,
+        email=email,
+        name=name,
+        google_id=google_id,
+        avatar_url=picture,
+        role=role,
+        is_active=True,
+        email_verified=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def _build_frontend_redirect(**params: str) -> str:
+    query = urlencode(params)
+    return f"{settings.FRONTEND_URL.rstrip('/')}/?{query}"
 
 
 # ======================== LOGIN ========================
@@ -107,7 +180,12 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     # Se não é o primeiro usuário, enviar código de verificação
     if not is_verified:
         code = create_verification_code(db, user.email, VerificationType.email_verify, user.id)
-        send_verification_email(user.email, code, user.name)
+        email_sent = send_verification_email(user.email, code, user.name)
+        if not email_sent:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Não foi possível enviar o email de verificação. Tente novamente em instantes."
+            )
         return {
             "message": "Conta criada! Verifique seu email para ativar.",
             "email": user.email,
@@ -166,7 +244,12 @@ def resend_verification_code(data: ResendCodeRequest, db: Session = Depends(get_
         return {"message": "Este email já está verificado."}
     
     code = create_verification_code(db, email, VerificationType.email_verify, user.id)
-    send_verification_email(email, code, user.name)
+    email_sent = send_verification_email(email, code, user.name)
+    if not email_sent:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Não foi possível reenviar o código agora. Tente novamente em instantes."
+        )
     
     return {"message": "Novo código enviado para seu email."}
 
@@ -184,7 +267,12 @@ def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
         return {"message": "Se o email estiver cadastrado, um código de redefinição será enviado."}
     
     code = create_verification_code(db, email, VerificationType.password_reset, user.id)
-    send_password_reset_email(email, code, user.name)
+    email_sent = send_password_reset_email(email, code, user.name)
+    if not email_sent:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Não foi possível enviar o código de redefinição agora. Tente novamente em instantes."
+        )
     
     return {"message": "Código de redefinição enviado para seu email."}
 
@@ -217,11 +305,100 @@ def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
 
 # ======================== GOOGLE LOGIN ========================
 
+@router.post("/google-login-redirect-url", response_model=GoogleRedirectUrlResponse)
+def google_login_redirect_url():
+    """Gera URL do OAuth Google no modo redirect (ideal para PWA/WebView)."""
+    if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google OAuth não está configurado no servidor"
+        )
+
+    state = _build_google_state_token()
+    params = {
+        "client_id": settings.GOOGLE_CLIENT_ID,
+        "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": state,
+        "prompt": "select_account",
+    }
+    auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
+    return {"auth_url": auth_url}
+
+
+@router.get("/google-callback")
+def google_callback(code: str, state: str, db: Session = Depends(get_db)):
+    """Callback OAuth Google para login em redirect mode."""
+    try:
+        _validate_google_state_token(state)
+
+        token_response = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": settings.GOOGLE_CLIENT_ID,
+                "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                "code": code,
+                "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+                "grant_type": "authorization_code",
+            },
+            timeout=20,
+        )
+        token_response.raise_for_status()
+        token_data = token_response.json()
+        id_token_credential = token_data.get("id_token")
+        if not id_token_credential:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Google não retornou credencial de login"
+            )
+
+        idinfo = id_token.verify_oauth2_token(
+            id_token_credential,
+            google_requests.Request(),
+            settings.GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=300,
+        )
+
+        email = idinfo.get("email", "").lower()
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Não foi possível obter o email da conta Google"
+            )
+
+        user = _upsert_google_user(
+            db=db,
+            google_id=idinfo["sub"],
+            email=email,
+            name=idinfo.get("name", ""),
+            picture=idinfo.get("picture", ""),
+        )
+
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Conta desativada"
+            )
+
+        access_token = create_access_token(data={"sub": user.username})
+        return RedirectResponse(url=_build_frontend_redirect(auth_token=access_token, auth_provider="google"), status_code=302)
+    except HTTPException as exc:
+        logger.error("Falha no callback OAuth Google: %s", exc.detail)
+        return RedirectResponse(
+            url=_build_frontend_redirect(auth_error=str(exc.detail), auth_provider="google"),
+            status_code=302,
+        )
+    except Exception as exc:
+        logger.error("Erro inesperado no callback OAuth Google: %s", exc)
+        return RedirectResponse(
+            url=_build_frontend_redirect(auth_error="Falha no login com Google", auth_provider="google"),
+            status_code=302,
+        )
+
 @router.post("/google-login", response_model=Token)
 def google_login(data: GoogleLoginRequest, db: Session = Depends(get_db)):
     """Login/registro via Google OAuth"""
-    import logging
-    logger = logging.getLogger(__name__)
     try:
         # Verificar o token do Google (com tolerância de clock de 5 minutos)
         idinfo = id_token.verify_oauth2_token(
@@ -255,44 +432,7 @@ def google_login(data: GoogleLoginRequest, db: Session = Depends(get_db)):
             detail=f"Erro na verificação do Google: {str(e)}"
         )
     
-    # Procurar usuário existente por google_id ou email
-    user = db.query(User).filter(
-        (User.google_id == google_id) | (User.email == email)
-    ).first()
-    
-    if user:
-        # Atualizar google_id se necessário
-        if not user.google_id:
-            user.google_id = google_id
-        if picture:
-            user.avatar_url = picture  # Sempre atualiza a foto do Google
-        db.commit()
-    else:
-        # Criar novo usuário via Google
-        user_count = db.query(User).count()
-        role = UserRole.admin if user_count == 0 else UserRole.user
-        
-        # Gerar username único a partir do email
-        base_username = email.split("@")[0].lower()
-        username = base_username
-        counter = 1
-        while db.query(User).filter(User.username == username).first():
-            username = f"{base_username}{counter}"
-            counter += 1
-        
-        user = User(
-            username=username,
-            email=email,
-            name=name,
-            google_id=google_id,
-            avatar_url=picture,
-            role=role,
-            is_active=True,
-            email_verified=True,  # Google já verificou o email
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+    user = _upsert_google_user(db=db, google_id=google_id, email=email, name=name, picture=picture)
     
     if not user.is_active:
         raise HTTPException(

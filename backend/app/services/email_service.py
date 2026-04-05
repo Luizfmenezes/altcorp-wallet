@@ -1,10 +1,13 @@
 import resend
 import random
 import string
-from datetime import datetime, timedelta
+import logging
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.database.models import VerificationCode, VerificationType
+
+logger = logging.getLogger(__name__)
 
 # Configure Resend
 resend.api_key = settings.RESEND_API_KEY
@@ -15,12 +18,18 @@ def generate_code(length: int = 6) -> str:
     return ''.join(random.choices(string.digits, k=length))
 
 
+def _validate_resend_config() -> None:
+    """Valida se a configuração obrigatória do Resend está presente."""
+    if not settings.RESEND_API_KEY:
+        raise RuntimeError("RESEND_API_KEY não configurada")
+    if not settings.RESEND_FROM_EMAIL:
+        raise RuntimeError("RESEND_FROM_EMAIL não configurado")
+
+
 def send_verification_email(email: str, code: str, name: str = "") -> bool:
     """Envia email de verificação de conta via Resend"""
     try:
-        if not settings.RESEND_API_KEY:
-            print(f"[DEV] Verification code for {email}: {code}")
-            return True
+        _validate_resend_config()
         
         params = {
             "from": settings.RESEND_FROM_EMAIL,
@@ -52,16 +61,14 @@ def send_verification_email(email: str, code: str, name: str = "") -> bool:
         resend.Emails.send(params)
         return True
     except Exception as e:
-        print(f"Error sending verification email: {e}")
+        logger.error("Falha ao enviar email de verificação para %s: %s", email, e)
         return False
 
 
 def send_password_reset_email(email: str, code: str, name: str = "") -> bool:
     """Envia email de reset de senha via Resend"""
     try:
-        if not settings.RESEND_API_KEY:
-            print(f"[DEV] Password reset code for {email}: {code}")
-            return True
+        _validate_resend_config()
         
         params = {
             "from": settings.RESEND_FROM_EMAIL,
@@ -93,7 +100,7 @@ def send_password_reset_email(email: str, code: str, name: str = "") -> bool:
         resend.Emails.send(params)
         return True
     except Exception as e:
-        print(f"Error sending password reset email: {e}")
+        logger.error("Falha ao enviar email de redefinição para %s: %s", email, e)
         return False
 
 
@@ -118,7 +125,7 @@ def create_verification_code(
         email=email,
         code=code,
         type=code_type,
-        expires_at=datetime.utcnow() + timedelta(minutes=10),
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
         used=False,
     )
     db.add(verification)
@@ -139,7 +146,7 @@ def verify_code(
         VerificationCode.code == code,
         VerificationCode.type == code_type,
         VerificationCode.used == False,
-        VerificationCode.expires_at > datetime.utcnow()
+        VerificationCode.expires_at > datetime.now(timezone.utc)
     ).first()
     
     if not verification:

@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+import re
 from app.database.session import get_db
 from app.database.models import User, UserRole
 from app.schemas.schemas import UserCreate, UserResponse, UserUpdate
@@ -9,6 +10,44 @@ from app.core.security import get_password_hash
 from app.core.dependencies import require_admin, get_current_user
 
 router = APIRouter()
+PROFILE_CHANGE_COOLDOWN_MINUTES = 5
+
+
+def _normalize_username_or_raise(username: str) -> str:
+    normalized = username.strip().lower()
+    if len(normalized) < 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username deve ter pelo menos 3 caracteres",
+        )
+    if len(normalized) > 30:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username deve ter no máximo 30 caracteres",
+        )
+    if not re.match(r'^[a-z0-9_]+$', normalized):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username pode conter apenas letras minúsculas, números e _",
+        )
+    return normalized
+
+
+def _enforce_identity_change_cooldown(current_user: User) -> None:
+    if not current_user.last_identity_change_at:
+        return
+
+    now = datetime.now(timezone.utc)
+    available_at = current_user.last_identity_change_at + timedelta(minutes=PROFILE_CHANGE_COOLDOWN_MINUTES)
+    if available_at <= now:
+        return
+
+    remaining_seconds = int((available_at - now).total_seconds())
+    remaining_minutes = max(1, (remaining_seconds + 59) // 60)
+    raise HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail=f"Você só pode alterar nome ou username a cada {PROFILE_CHANGE_COOLDOWN_MINUTES} minutos. Tente novamente em cerca de {remaining_minutes} minuto(s).",
+    )
 
 @router.get("/me", response_model=UserResponse)
 def get_current_user_info(current_user: User = Depends(get_current_user)):
@@ -37,18 +76,88 @@ def complete_onboarding(
 ):
     """Complete user onboarding and update profile"""
     try:
-        # Update user profile with onboarding data
+        original_username = current_user.username or ""
+        original_name = current_user.name or ""
+        requested_username = None
+        requested_name = None
+
+        # Username pode ser alterado pelo próprio usuário, mas deve ser único.
+        if user_data.username is not None:
+            normalized_username = _normalize_username_or_raise(user_data.username)
+            requested_username = normalized_username
+            existing_username = db.query(User).filter(
+                User.username == normalized_username,
+                User.id != current_user.id,
+            ).first()
+            if existing_username:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Username já está em uso",
+                )
+            current_user.username = normalized_username
+
+        # Update user profile name
         if user_data.name is not None:
-            current_user.name = user_data.name
+            cleaned_name = user_data.name.strip()
+            if not cleaned_name:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Nome não pode ser vazio",
+                )
+            requested_name = cleaned_name
+
+        identity_change_requested = (
+            (requested_username is not None and requested_username != original_username) or
+            (requested_name is not None and requested_name != original_name)
+        )
+
+        if current_user.onboarding_completed and identity_change_requested:
+            _enforce_identity_change_cooldown(current_user)
+
+        if requested_username is not None:
+            current_user.username = requested_username
+
+        if requested_name is not None:
+            current_user.name = requested_name
+
+        # Email não pode ser alterado nas configurações.
+        # Apenas permite definir email se ainda não houver email e onboarding estiver incompleto.
         if user_data.email is not None and user_data.email.strip() != '':
-            current_user.email = user_data.email
+            normalized_email = user_data.email.strip().lower()
+            if current_user.email:
+                if normalized_email != current_user.email.strip().lower():
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Email não pode ser alterado",
+                    )
+            elif current_user.onboarding_completed:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email não pode ser alterado",
+                )
+            else:
+                existing_email = db.query(User).filter(
+                    User.email == normalized_email,
+                    User.id != current_user.id,
+                ).first()
+                if existing_email:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Email já está em uso",
+                    )
+                current_user.email = normalized_email
         
         # Mark onboarding as completed
         current_user.onboarding_completed = True
+        if identity_change_requested:
+            current_user.last_identity_change_at = datetime.now(timezone.utc)
         
         db.commit()
         db.refresh(current_user)
         return current_user
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(

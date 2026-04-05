@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Moon, Sun, LogOut, Palette, Users, Plus, Trash2, Camera, Save, Shield, ImageIcon, Check } from 'lucide-react';
+import { User, Moon, Sun, LogOut, Palette, Users, Plus, Trash2, Camera, Save, Shield, ImageIcon, Check, Mail, AtSign, KeyRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,11 @@ const Settings: React.FC = () => {
   // Profile edit state
   const [profileFirstName, setProfileFirstName] = useState('');
   const [profileLastName, setProfileLastName] = useState('');
+  const [profileUsername, setProfileUsername] = useState('');
   const [profileEmail, setProfileEmail] = useState('');
+  const profileImage = user?.profile_photo || user?.avatar_url || null;
+  const accountProviderLabel = user?.apiUser?.google_id ? 'Conta conectada com Google' : 'Conta local AltCorp';
+  const fullDisplayName = `${profileFirstName} ${profileLastName}`.trim() || user?.name || 'Seu perfil';
 
   // Update profile fields when user data changes
   useEffect(() => {
@@ -53,6 +57,12 @@ const Settings: React.FC = () => {
         setProfileEmail(user.apiUser.email);
       } else if (user.profile?.email) {
         setProfileEmail(user.profile.email);
+      }
+
+      if (user.apiUser?.username) {
+        setProfileUsername(user.apiUser.username);
+      } else if (user.username) {
+        setProfileUsername(user.username);
       }
     }
   }, [user]);
@@ -95,16 +105,57 @@ const Settings: React.FC = () => {
   };
 
   const handleSaveProfile = async () => {
-    try {
-      await updateProfile(profileFirstName, profileLastName, profileEmail);
-      toast({
-        title: 'Perfil atualizado',
-        description: 'Suas alterações foram salvas no banco.',
-      });
-    } catch {
+    const trimmedFirstName = profileFirstName.trim();
+    const trimmedLastName = profileLastName.trim();
+    const normalizedUsername = profileUsername.trim().toLowerCase();
+
+    if (!trimmedFirstName) {
       toast({
         title: 'Erro',
-        description: 'Falha ao atualizar perfil.',
+        description: 'Preencha seu nome.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!normalizedUsername) {
+      toast({
+        title: 'Erro',
+        description: 'Preencha seu username.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (normalizedUsername.length < 3 || normalizedUsername.length > 30) {
+      toast({
+        title: 'Erro',
+        description: 'Username deve ter entre 3 e 30 caracteres.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!/^[a-z0-9_]+$/.test(normalizedUsername)) {
+      toast({
+        title: 'Erro',
+        description: 'Username só pode conter letras minúsculas, números e _.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await updateProfile(trimmedFirstName, trimmedLastName, normalizedUsername);
+      toast({
+        title: 'Perfil atualizado',
+        description: 'Dados pessoais atualizados com sucesso.',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Falha ao atualizar perfil.';
+      toast({
+        title: 'Erro',
+        description: message,
         variant: 'destructive',
       });
     }
@@ -182,23 +233,102 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24 lg:pb-8">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#1d4ed81a,transparent_35%),linear-gradient(180deg,#07111f_0%,#0b1220_14%,hsl(var(--background))_38%)] pb-24 lg:pb-8">
       {/* Header */}
-      <header className="bg-primary text-primary-foreground p-6 pb-8 rounded-b-3xl lg:rounded-none">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-xl lg:text-2xl font-bold text-center tracking-wide">
-            CONFIGURAÇÕES
-          </h1>
+      <header className="px-4 pt-5 md:px-6 lg:px-8">
+        <div className="max-w-3xl mx-auto rounded-[28px] border border-white/10 bg-slate-950/80 text-white p-6 shadow-[0_20px_70px_rgba(2,8,23,0.45)] backdrop-blur">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.28em] text-cyan-300/80">Configurações</p>
+              <h1 className="text-2xl lg:text-3xl font-semibold mt-2">Sua conta e preferências</h1>
+              <p className="text-sm text-slate-300 mt-2 max-w-xl">
+                Atualize seus dados pessoais, personalize a aparência e gerencie as pessoas usadas nas divisões de gastos.
+              </p>
+            </div>
+            <div className="hidden sm:flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/10 border border-cyan-300/20">
+              <User className="w-5 h-5 text-cyan-300" />
+            </div>
+          </div>
         </div>
       </header>
 
       {/* Content */}
-      <div className="px-4 md:px-6 lg:px-8 -mt-4 space-y-4 max-w-2xl mx-auto">
+      <div className="px-4 md:px-6 lg:px-8 mt-4 space-y-4 max-w-3xl mx-auto">
+        <section className="rounded-[28px] border border-border/60 bg-card/95 shadow-[0_14px_40px_rgba(15,23,42,0.12)] p-5 md:p-6 animate-fade-in">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="relative shrink-0">
+                <div className="w-20 h-20 rounded-3xl overflow-hidden border border-primary/20 bg-primary/10 flex items-center justify-center">
+                  {profileImage ? (
+                    <img src={profileImage} alt="Foto de perfil" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-9 h-9 text-primary" />
+                  )}
+                </div>
+                <div className="absolute -bottom-1 -right-1 rounded-full border border-background bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                  Ativo
+                </div>
+              </div>
+
+              <div className="min-w-0">
+                <h2 className="text-xl font-semibold text-foreground truncate">{fullDisplayName}</h2>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                    <AtSign className="w-3.5 h-3.5" />
+                    {profileUsername || 'sem_username'}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                    <Mail className="w-3.5 h-3.5" />
+                    {profileEmail || 'sem email'}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">{accountProviderLabel}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs min-w-[180px]">
+              <div className="rounded-2xl border border-border bg-muted/40 p-3">
+                <p className="text-muted-foreground">Username</p>
+                <p className="font-semibold text-foreground mt-1 truncate">{profileUsername || 'pendente'}</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/40 p-3">
+                <p className="text-muted-foreground">Login</p>
+                <p className="font-semibold text-foreground mt-1">{user?.apiUser?.google_id ? 'Google' : 'Email/Senha'}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-[28px] border border-border/60 bg-card/95 shadow-[0_14px_40px_rgba(15,23,42,0.12)] p-5 md:p-6 animate-fade-in" style={{ animationDelay: '0.03s' }}>
+          <div className="flex items-center gap-2 mb-4">
+            <KeyRound className="w-5 h-5 text-primary" />
+            <h2 className="font-semibold text-foreground">Segurança da Conta</h2>
+          </div>
+
+          <div className="mb-5 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs text-amber-700 dark:text-amber-300">
+            Para manter sua segurança, a redefinição de senha fica em uma tela dedicada.
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate('/settings/change-password')}
+            className="w-full h-11 rounded-2xl"
+          >
+            <KeyRound className="w-4 h-4 mr-2" />
+            Ir para alteração de senha
+          </Button>
+        </section>
+
         {/* Profile Section */}
-        <section className="card-finance animate-fade-in">
+        <section className="rounded-[28px] border border-border/60 bg-card/95 shadow-[0_14px_40px_rgba(15,23,42,0.12)] p-5 md:p-6 animate-fade-in">
           <div className="flex items-center gap-2 mb-4">
             <User className="w-5 h-5 text-primary" />
-            <h2 className="font-semibold text-foreground">Perfil</h2>
+            <h2 className="font-semibold text-foreground">Dados Pessoais</h2>
+          </div>
+
+          <div className="mb-5 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-xs text-primary/90">
+            Você pode alterar foto, nome, sobrenome e username. O email da conta é fixo e não pode ser alterado.
           </div>
           
           {/* Avatar */}
@@ -209,16 +339,10 @@ const Settings: React.FC = () => {
                 className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-primary/10 flex items-center justify-center border-4 border-primary/20 overflow-hidden cursor-pointer"
                 onClick={handlePhotoClick}
               >
-                {user?.profile_photo ? (
-                  <img 
-                    src={user.profile_photo} 
-                    alt="Foto de perfil" 
-                    className="w-full h-full object-cover"
-                  />
-                ) : user?.avatar_url ? (
+                {profileImage ? (
                   <img
-                    src={user.avatar_url}
-                    alt="Foto Google"
+                    src={profileImage}
+                    alt="Foto de perfil"
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -285,11 +409,12 @@ const Settings: React.FC = () => {
           </div>
           
           {/* Profile Form */}
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="text-sm text-muted-foreground mb-1 block">Nome</label>
+                <label htmlFor="profile-first-name" className="text-sm text-muted-foreground mb-1 block">Nome</label>
                 <Input
+                  id="profile-first-name"
                   value={profileFirstName}
                   onChange={(e) => setProfileFirstName(e.target.value)}
                   className="input-finance"
@@ -297,8 +422,9 @@ const Settings: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-sm text-muted-foreground mb-1 block">Sobrenome</label>
+                <label htmlFor="profile-last-name" className="text-sm text-muted-foreground mb-1 block">Sobrenome</label>
                 <Input
+                  id="profile-last-name"
                   value={profileLastName}
                   onChange={(e) => setProfileLastName(e.target.value)}
                   className="input-finance"
@@ -306,19 +432,39 @@ const Settings: React.FC = () => {
                 />
               </div>
             </div>
-            
+
             <div>
-              <label className="text-sm text-muted-foreground mb-1 block">Email</label>
+              <label htmlFor="profile-username" className="text-sm text-muted-foreground mb-1 block">Username único</label>
               <Input
-                type="email"
-                value={profileEmail}
-                onChange={(e) => setProfileEmail(e.target.value)}
+                id="profile-username"
+                value={profileUsername}
+                onChange={(e) => setProfileUsername(e.target.value.toLowerCase())}
                 className="input-finance text-sm"
-                placeholder="seu@email.com"
+                placeholder="seu_username"
+                autoCapitalize="none"
               />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Cada usuário tem um username exclusivo no sistema.
+              </p>
             </div>
             
-            <Button onClick={handleSaveProfile} className="w-full h-11 rounded-xl">
+            <div>
+              <label htmlFor="profile-email" className="text-sm text-muted-foreground mb-1 block">Email</label>
+              <Input
+                id="profile-email"
+                type="email"
+                value={profileEmail}
+                readOnly
+                disabled
+                className="input-finance text-sm opacity-80 cursor-not-allowed"
+                placeholder="seu@email.com"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Email bloqueado por segurança da conta.
+              </p>
+            </div>
+            
+            <Button onClick={handleSaveProfile} className="w-full h-12 rounded-2xl text-sm font-semibold">
               <Save className="w-4 h-4 mr-2" />
               Salvar Alterações
             </Button>
@@ -327,7 +473,7 @@ const Settings: React.FC = () => {
 
         {/* Admin Section - User Management */}
         {authService.isAdmin() && (
-          <section className="card-finance animate-fade-in" style={{ animationDelay: '0.05s' }}>
+          <section className="rounded-[28px] border border-red-500/20 bg-card/95 shadow-[0_14px_40px_rgba(15,23,42,0.12)] p-5 md:p-6 animate-fade-in" style={{ animationDelay: '0.05s' }}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Shield className="w-5 h-5 text-red-500" />
@@ -351,7 +497,7 @@ const Settings: React.FC = () => {
         )}
 
         {/* People Management Section */}
-        <section className="card-finance animate-fade-in" style={{ animationDelay: '0.05s' }}>
+        <section className="rounded-[28px] border border-border/60 bg-card/95 shadow-[0_14px_40px_rgba(15,23,42,0.12)] p-5 md:p-6 animate-fade-in" style={{ animationDelay: '0.05s' }}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Users className="w-5 h-5 text-primary" />
@@ -419,7 +565,7 @@ const Settings: React.FC = () => {
         </section>
 
         {/* Appearance Section */}
-        <section className="card-finance animate-fade-in" style={{ animationDelay: '0.1s' }}>
+        <section className="rounded-[28px] border border-border/60 bg-card/95 shadow-[0_14px_40px_rgba(15,23,42,0.12)] p-5 md:p-6 animate-fade-in" style={{ animationDelay: '0.1s' }}>
           <div className="flex items-center gap-2 mb-4">
             <Palette className="w-5 h-5 text-primary" />
             <h2 className="font-semibold text-foreground">Aparência</h2>

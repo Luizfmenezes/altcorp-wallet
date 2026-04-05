@@ -82,7 +82,7 @@ interface FinanceContextType {
   addCard: (card: Omit<Card, 'id' | 'invoiceItems'>) => Promise<void>;
   updateCard: (id: string, updates: Partial<Omit<Card, 'id' | 'invoiceItems'>>) => Promise<void>;
   removeCard: (id: string) => Promise<void>;
-  addInvoiceItem: (cardId: string, item: Omit<InvoiceItem, 'id'>, installments?: number) => Promise<void>;
+  addInvoiceItem: (cardId: string, item: Omit<InvoiceItem, 'id'>, installments?: number, splitBetween?: string[]) => Promise<void>;
   updateInvoiceItem: (cardId: string, itemId: string, updates: Partial<Omit<InvoiceItem, 'id'>>) => Promise<void>;
   removeInvoiceItem: (cardId: string, itemId: string) => Promise<void>;
   importCSV: (cardId: string, items: Omit<InvoiceItem, 'id'>[]) => Promise<void>;
@@ -207,9 +207,9 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     } catch { /* silent */ }
   };
 
-  const addInvoiceItem = async (cardId: string, item: Omit<InvoiceItem, 'id'>, installments?: number) => {
+  const addInvoiceItem = async (cardId: string, item: Omit<InvoiceItem, 'id'>, installments?: number, splitBetween?: string[]) => {
     try {
-      const newItems = await financeService.addInvoiceItem(cardId, item, installments);
+      const newItems = await financeService.addInvoiceItem(cardId, item, installments, splitBetween);
       setCards(prev => prev.map(card => {
         if (card.id === cardId) {
           return {

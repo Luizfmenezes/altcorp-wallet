@@ -34,7 +34,7 @@ interface AuthContextType {
   hasCompletedOnboarding: boolean;
   completeOnboarding: (name: string, email?: string) => Promise<void>;
   updateUserProfile: (profile: UserProfile) => void;
-  updateProfile: (firstName: string, lastName: string, email?: string) => Promise<void>;
+  updateProfile: (firstName: string, lastName: string, username: string) => Promise<void>;
   updateProfilePhoto: (photo: string) => void;
   refreshUser: () => Promise<void>;
 }
@@ -194,18 +194,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const updateProfile = async (firstName: string, lastName: string, email?: string) => {
-    try {
-      const fullName = `${firstName} ${lastName}`.trim();
-      const updatedUser = await authService.updateProfile(fullName, email);
-      setUser(prev => prev ? {
-        ...prev,
-        name: updatedUser.name,
-        apiUser: updatedUser,
-      } : null);
-    } catch (error) {
-      console.error('Failed to update profile:', error);
-    }
+  const updateProfile = async (firstName: string, lastName: string, username: string) => {
+    const fullName = `${firstName} ${lastName}`.trim();
+    const normalizedUsername = username.trim().toLowerCase();
+
+    const updatedUser = await authService.updateProfile({
+      name: fullName,
+      username: normalizedUsername,
+    });
+
+    setUser(prev => prev ? {
+      ...prev,
+      username: updatedUser.username,
+      name: updatedUser.name,
+      apiUser: updatedUser,
+    } : null);
   };
 
   const refreshUser = async () => {

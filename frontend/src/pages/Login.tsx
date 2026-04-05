@@ -28,6 +28,14 @@ declare global {
 const VERIFY_SESSION_KEY = 'altcorp_verify_pending';
 const VERIFY_SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutos
 
+function shouldUseGoogleRedirectFlow() {
+  const ua = navigator.userAgent.toLowerCase();
+  const isStandalone = globalThis.matchMedia('(display-mode: standalone)').matches || (globalThis.navigator as Navigator & { standalone?: boolean }).standalone === true;
+  const isWebView = ua.includes('wv') || ua.includes('webview') || ua.includes('capacitor');
+  const isMobile = /android|iphone|ipad|ipod/.test(ua);
+  return isStandalone || (isMobile && isWebView);
+}
+
 function saveVerifySession(email: string) {
   sessionStorage.setItem(VERIFY_SESSION_KEY, JSON.stringify({
     email,
@@ -92,7 +100,7 @@ const Login: React.FC = () => {
 
   // Animation
   const [animPhase, setAnimPhase] = useState<'center' | 'rising' | 'top'>(pendingVerify ? 'top' : 'center');
-  const [contentVisible, setContentVisible] = useState(pendingVerify ? true : false);
+  const [contentVisible, setContentVisible] = useState(Boolean(pendingVerify));
 
   // Carousel
   const [currentImage, setCurrentImage] = useState(0);
@@ -104,6 +112,7 @@ const Login: React.FC = () => {
 
   // Keyboard detection
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
   
   // Ref estável para o callback do Google
   const googleCallbackRef = useRef<(response: { credential: string }) => void>(() => {});
@@ -186,40 +195,146 @@ const Login: React.FC = () => {
   }, [googleLogin, navigate, toast]);
 
   useEffect(() => {
-    googleCallbackRef.current = handleGoogleCallback;
+    googleCallbackRef.current = (response: { credential: string }) => {
+      void handleGoogleCallback(response);
+    };
   }, [handleGoogleCallback]);
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
   const googleEnabled = Boolean(googleClientId);
+  const useGoogleRedirectFlow = shouldUseGoogleRedirectFlow();
+
+  useEffect(() => {
+    if (!googleEnabled) {
+      setGoogleReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 80;
+
+    const pollGoogle = () => {
+      if (cancelled) return;
+      if (globalThis.google?.accounts?.id) {
+        setGoogleReady(true);
+        return;
+      }
+
+      attempts += 1;
+      if (attempts < maxAttempts) {
+        globalThis.setTimeout(pollGoogle, 250);
+      }
+    };
+
+    pollGoogle();
+    return () => {
+      cancelled = true;
+    };
+  }, [googleEnabled]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(globalThis.location.search);
+    const provider = params.get('auth_provider');
+    const redirectToken = params.get('auth_token');
+    const redirectError = params.get('auth_error');
+    if (provider !== 'google') return;
+
+    const cleanUrl = () => {
+      globalThis.history.replaceState({}, document.title, globalThis.location.pathname);
+    };
+
+    if (redirectError) {
+      cleanUrl();
+      toast({ title: 'Erro', description: redirectError, variant: 'destructive' });
+      return;
+    }
+
+    if (!redirectToken) return;
+
+    let isMounted = true;
+    setIsLoading(true);
+    authService.completeGoogleRedirectLogin(redirectToken)
+      .then(() => {
+        if (!isMounted) return;
+        cleanUrl();
+        toast({ title: 'Bem-vindo!', description: 'Login com Google realizado.' });
+        navigate('/dashboard');
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        cleanUrl();
+        toast({ title: 'Erro', description: 'Falha no login com Google.', variant: 'destructive' });
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [navigate, toast]);
+
+  const handleGoogleRedirectLogin = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const redirectUrl = await authService.getGoogleRedirectUrl();
+      globalThis.location.href = redirectUrl;
+    } catch {
+      toast({ title: 'Erro', description: 'Falha ao iniciar login com Google.', variant: 'destructive' });
+      setIsLoading(false);
+    }
+  }, [toast]);
 
   // Inicializa o GSI
   useEffect(() => {
-    if (!googleEnabled || !window.google) return;
+    if (!googleEnabled || useGoogleRedirectFlow || !googleReady || !globalThis.google) return;
     try {
-      window.google.accounts.id.initialize({
+      globalThis.google.accounts.id.initialize({
         client_id: googleClientId,
         callback: (resp: { credential: string }) => googleCallbackRef.current(resp),
-        // Adicionando ux_mode ajuda em alguns PWAs (opcional, popup é o padrão)
-        ux_mode: 'popup', 
+        ux_mode: 'popup',
+        auto_select: true,
+        cancel_on_tap_outside: false,
+        itp_support: true,
       });
     } catch (e) {
       console.warn('Google login not configured:', e);
     }
-  }, [googleEnabled, googleClientId]);
+  }, [googleEnabled, googleClientId, useGoogleRedirectFlow, googleReady]);
 
-  // Callback ref para renderizar o botão físico na tela
-  const renderGoogleButton = useCallback((element: HTMLDivElement | null) => {
-    if (!element || !googleEnabled || !window.google) return;
-    window.google.accounts.id.renderButton(element, {
-      theme: 'filled_black',
-      size: 'large',
-      width: element.offsetWidth || 300,
-      shape: 'pill',
-      text: 'continue_with',
-      locale: 'pt-BR',
-    });
-  }, [googleEnabled]);
+  useEffect(() => {
+    if (!googleEnabled || useGoogleRedirectFlow || !googleReady || !globalThis.google) return;
+    if (view !== 'welcome' && view !== 'login') return;
 
+    const timer = globalThis.setTimeout(() => {
+      try {
+        globalThis.google?.accounts.id.prompt();
+      } catch (error) {
+        console.warn('Google prompt failed:', error);
+      }
+    }, 250);
+
+    return () => globalThis.clearTimeout(timer);
+  }, [googleEnabled, googleReady, useGoogleRedirectFlow, view]);
+
+  const startGoogleSignIn = useCallback(async () => {
+    if (useGoogleRedirectFlow) {
+      await handleGoogleRedirectLogin();
+      return;
+    }
+
+    if (!googleReady || !globalThis.google) {
+      toast({ title: 'Erro', description: 'Google Login ainda está carregando. Tente novamente em alguns segundos.', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      globalThis.google.accounts.id.prompt();
+    } catch {
+      toast({ title: 'Erro', description: 'Não foi possível iniciar o login com Google.', variant: 'destructive' });
+    }
+  }, [googleReady, handleGoogleRedirectLogin, toast, useGoogleRedirectFlow]);
 
   // ====== AUTH HANDLERS ======
 
@@ -380,6 +495,11 @@ const Login: React.FC = () => {
   };
 
   const handleQuickLogin = () => {
+    if (lastUser?.provider === 'google') {
+      setView('login');
+      void startGoogleSignIn();
+      return;
+    }
     setView('login');
     if (lastUser) {
       setLoginIdentifier(lastUser.username);
@@ -409,6 +529,17 @@ const Login: React.FC = () => {
   const inputClass = "h-12 rounded-xl bg-white/10 border-white/10 text-white placeholder:text-white/40 focus:border-white/30 focus:ring-white/20";
   const Spinner = () => <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />;
 
+  const renderGoogleAction = (label = 'Continuar com Google') => (
+    <Button
+      type="button"
+      onClick={() => void startGoogleSignIn()}
+      disabled={isLoading}
+      className="w-full h-12 rounded-2xl font-semibold text-base bg-white text-black hover:bg-white/90 shadow-lg"
+    >
+      {isLoading ? <Spinner /> : label}
+    </Button>
+  );
+
   // ====== RENDER VIEWS ======
 
   const renderWelcome = () => (
@@ -427,8 +558,18 @@ const Login: React.FC = () => {
             <p className="text-white text-xl font-semibold">{lastUser.name}</p>
           </div>
           <Button onClick={handleQuickLogin} className="w-full h-12 rounded-2xl font-semibold text-base bg-white text-black hover:bg-white/90 shadow-lg mt-2">
-            <LogIn className="w-5 h-5 mr-2" /> Entrar
+            <LogIn className="w-5 h-5 mr-2" /> {lastUser.provider === 'google' ? 'Continuar com Google' : 'Entrar'}
           </Button>
+          {googleEnabled && (
+            <div className="w-full mt-1">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex-1 h-px bg-white/20" />
+                <span className="text-white/40 text-xs">ou</span>
+                <div className="flex-1 h-px bg-white/20" />
+              </div>
+              {renderGoogleAction()}
+            </div>
+          )}
           <Button onClick={handleLogout} variant="ghost" className="w-full h-11 rounded-2xl font-medium text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/30">
             <LogOut className="w-4 h-4 mr-2" /> Sair da conta
           </Button>
@@ -453,7 +594,7 @@ const Login: React.FC = () => {
                 <span className="text-white/40 text-xs">ou</span>
                 <div className="flex-1 h-px bg-white/20" />
               </div>
-              <div className="w-full flex justify-center" ref={renderGoogleButton} />
+              {renderGoogleAction()}
             </div>
           )}
         </>
@@ -523,7 +664,7 @@ const Login: React.FC = () => {
               <span className="text-white/40 text-xs">ou</span>
               <div className="flex-1 h-px bg-white/20" />
             </div>
-            <div className="w-full flex justify-center" ref={renderGoogleButton} />
+            {renderGoogleAction()}
           </>
         )}
 
@@ -564,7 +705,7 @@ const Login: React.FC = () => {
               type="text"
               placeholder="username (ex: joao_silva)"
               value={regUsername}
-              onChange={(e) => setRegUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 30))}
+              onChange={(e) => setRegUsername(e.target.value.toLowerCase().replaceAll(/[^a-z0-9_]/g, '').slice(0, 30))}
               className={`${inputClass} pl-10`}
               maxLength={30}
               required
@@ -628,7 +769,7 @@ const Login: React.FC = () => {
             inputMode="numeric"
             placeholder="• • • • • •"
             value={verifyCode}
-            onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onChange={(e) => setVerifyCode(e.target.value.replaceAll(/\D/g, '').slice(0, 6))}
             className={`${inputClass} text-center text-2xl tracking-[0.5em] font-bold placeholder:tracking-[0.3em] placeholder:text-base placeholder:opacity-50`}
             maxLength={6}
             required
@@ -694,7 +835,7 @@ const Login: React.FC = () => {
               inputMode="numeric"
               placeholder="• • • • • •"
               value={resetCode}
-              onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onChange={(e) => setResetCode(e.target.value.replaceAll(/\D/g, '').slice(0, 6))}
               className={`${inputClass} text-center text-2xl tracking-[0.5em] font-bold placeholder:tracking-[0.3em] placeholder:text-base placeholder:opacity-50`}
               maxLength={6}
               required

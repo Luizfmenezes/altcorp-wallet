@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
     avatar_url TEXT,
     profile_photo TEXT,
     people JSONB NOT NULL DEFAULT '[]',
+    last_identity_change_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

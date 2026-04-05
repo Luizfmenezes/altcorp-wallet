@@ -212,8 +212,8 @@ export const financeService = {
   },
 
   // === ITENS DE FATURA ===
-  addInvoiceItem: async (cardId: string, item: Omit<InvoiceItem, 'id'>, installments?: number) => {
-    const payload = { ...item, installments }; 
+  addInvoiceItem: async (cardId: string, item: Omit<InvoiceItem, 'id'>, installments?: number, splitBetween?: string[]) => {
+    const payload = { ...item, installments, split_between: splitBetween }; 
     const response = await api.post(`/cards/${cardId}/items`, payload);
     const items = Array.isArray(response.data) ? response.data : [response.data];
     return items.map((i: any) => ({ ...i, id: String(i.id) }));

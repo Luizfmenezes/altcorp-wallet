@@ -2,6 +2,7 @@
 # AltCorp Wallet - Docker Compose
 # ========================================================
 # DEV:  docker compose --profile dev up --build
+# VM:   docker compose --profile vm up --build -d
 # PROD: docker compose --profile prod up --build -d
 #
 # Acesso DEV:  http://192.168.15.5:8080
@@ -23,7 +24,7 @@ services:
     environment:
       TZ: America/Sao_Paulo
       POSTGRES_USER: ${POSTGRES_USER:-walletuser}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-walletpass123}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-altcorp_wallet}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -55,14 +56,14 @@ services:
         required: false
     environment:
       TZ: America/Sao_Paulo
-      DATABASE_URL: postgresql://${POSTGRES_USER:-walletuser}:${POSTGRES_PASSWORD:-walletpass123}@database:5432/${POSTGRES_DB:-altcorp_wallet}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-walletuser}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-altcorp_wallet}
       API_HOST: "0.0.0.0"
       API_PORT: "8000"
       DEBUG: "true"
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
-      ALLOWED_ORIGINS: "http://localhost:8080,http://localhost:3000,http://192.168.15.5:8080,https://wallet.altcorphub.com"
-      DOMAIN: "192.168.15.5"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080,http://localhost:3000,http://192.168.15.5:8080,https://wallet.altcorphub.com}
+      DOMAIN: ${DOMAIN:-192.168.15.5}
     ports:
       - "8000:8000"
     networks:
@@ -74,6 +75,41 @@ services:
       - ./backend:/app
       - /app/__pycache__
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips '*'
+
+  # ────────────────────────────────────────────────
+  # Backend API - VM/LAN (sem reload, HTTP por IP)
+  # ────────────────────────────────────────────────
+  backend-vm:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: altcorp-wallet-backend-vm
+    profiles: ["vm"]
+    restart: unless-stopped
+    env_file:
+      - .env
+      - path: .env.local
+        required: false
+    environment:
+      TZ: America/Sao_Paulo
+      DATABASE_URL: postgresql://${POSTGRES_USER:-walletuser}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-altcorp_wallet}
+      API_HOST: "0.0.0.0"
+      API_PORT: "8000"
+      DEBUG: ${DEBUG:-false}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080,http://192.168.15.5:8080}
+      DOMAIN: ${DOMAIN_VM:-192.168.15.5}
+      FRONTEND_URL: ${FRONTEND_URL_VM:-http://192.168.15.5:8080}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI_VM:-http://192.168.15.5:8000/api/v1/auth/google-callback}
+    ports:
+      - "8000:8000"
+    networks:
+      - wallet-network
+    depends_on:
+      database:
+        condition: service_healthy
 
   # ────────────────────────────────────────────────
   # Backend API - PRODUCTION (sem reload, otimizado)
@@ -92,14 +128,16 @@ services:
         required: false
     environment:
       TZ: America/Sao_Paulo
-      DATABASE_URL: postgresql://${POSTGRES_USER:-walletuser}:${POSTGRES_PASSWORD:-walletpass123}@database:5432/${POSTGRES_DB:-altcorp_wallet}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-walletuser}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-altcorp_wallet}
       API_HOST: "0.0.0.0"
       API_PORT: "8000"
-      DEBUG: "false"
+      DEBUG: ${DEBUG:-false}
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
-      ALLOWED_ORIGINS: "http://192.168.15.5:8080,https://wallet.altcorphub.com"
-      DOMAIN: "wallet.altcorphub.com"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://192.168.15.5:8080,https://wallet.altcorphub.com}
+      DOMAIN: ${DOMAIN:-wallet.altcorphub.com}
+      FRONTEND_URL: ${FRONTEND_URL:-https://wallet.altcorphub.com}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://wallet.altcorphub.com/api/v1/auth/google-callback}
     ports:
       - "8000:8000"
     networks:
@@ -137,6 +175,33 @@ services:
       - wallet-network
     depends_on:
       - backend-dev
+    environment:
+      TZ: America/Sao_Paulo
+
+  # ────────────────────────────────────────────────
+  # Frontend - VM/LAN (HTTP em :8080)
+  # ────────────────────────────────────────────────
+  frontend-vm:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+        NGINX_CONF: nginx.vm.conf
+    container_name: altcorp-wallet-frontend-vm
+    profiles: ["vm"]
+    restart: unless-stopped
+    env_file:
+      - .env
+      - path: .env.local
+        required: false
+    ports:
+      - "8080:80"
+    networks:
+      - wallet-network
+    depends_on:
+      - backend-vm
     environment:
       TZ: America/Sao_Paulo
 

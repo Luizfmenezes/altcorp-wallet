@@ -14,6 +14,8 @@ import { useFinance, Card, InvoiceItem } from '@/contexts/FinanceContext';
 import { useToast } from '@/hooks/use-toast';
 import { BRAZILIAN_BANKS, getBankById } from '@/lib/banks';
 import BankLogo from '@/components/BankLogo';
+import PDFExportDialog from '@/components/PDFExportDialog';
+import InvoiceImportDialog from '@/components/InvoiceImportDialog';
 
 /* ─── Cores ─── */
 const CARD_COLORS = [
@@ -208,6 +210,8 @@ type EditItemForm = {
   date: string;
   category: string;
   owner: string;
+  installments: string;
+  splitBetween: string[];
 };
 
 /* ═══════════════════════════════════════════
@@ -260,8 +264,10 @@ const CardDetail: React.FC = () => {
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InvoiceItem | null>(null);
   const [itemForm, setItemForm] = useState<EditItemForm>({
-    description: '', amount: '', date: '', category: 'Outros', owner: '',
+    description: '', amount: '', date: '', category: 'Outros', owner: '', installments: '1', splitBetween: [],
   });
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
   /* ─── Delete item ─── */
   const [deleteItemTarget, setDeleteItemTarget] = useState<InvoiceItem | null>(null);
@@ -279,6 +285,14 @@ const CardDetail: React.FC = () => {
   }, [card, viewMonth, viewYear]);
 
   const monthTotal = monthItems.reduce((s, i) => s + i.amount, 0);
+
+  const monthOwnerTotals = useMemo(() => {
+    return monthItems.reduce<Record<string, number>>((acc, item) => {
+      const owner = item.owner || 'Sem titular';
+      acc[owner] = (acc[owner] ?? 0) + item.amount;
+      return acc;
+    }, {});
+  }, [monthItems]);
 
   const isInvoicePaid = useMemo(() => {
     if (!card) return false;
@@ -350,22 +364,56 @@ const CardDetail: React.FC = () => {
       date: `${viewYear}-${mm}-${dd}`,
       category: 'Outros',
       owner: safePeople[0] ?? '',
+      installments: '1',
+      splitBetween: safePeople[0] ? [safePeople[0]] : [],
     });
     setItemDialogOpen(true);
   }, [viewMonth, viewYear, safePeople]);
 
   /* ─── Open edit item ─── */
   const openEditItem = useCallback((item: InvoiceItem) => {
+    const fallbackOwner = safePeople[0] ?? '';
+    const splitBetween = item.owner ? [item.owner] : [];
+    if (!item.owner && fallbackOwner) {
+      splitBetween.push(fallbackOwner);
+    }
     setEditingItem(item);
     setItemForm({
       description: item.description,
       amount: item.amount.toFixed(2).replace('.', ','),
       date: item.date,
       category: item.category ?? 'Outros',
-      owner: item.owner ?? (safePeople[0] ?? ''),
+      owner: item.owner ?? fallbackOwner,
+      installments: '1',
+      splitBetween,
     });
     setItemDialogOpen(true);
   }, [safePeople]);
+
+  const toggleSplitPerson = (person: string) => {
+    setItemForm(prev => {
+      const exists = prev.splitBetween.includes(person);
+      let next = exists
+        ? prev.splitBetween.filter(p => p !== person)
+        : [...prev.splitBetween, person];
+
+      if (next.length === 0) {
+        next = [person];
+      }
+
+      return {
+        ...prev,
+        splitBetween: next,
+        owner: next[0] ?? prev.owner,
+      };
+    });
+  };
+
+  const parsedAmount = Number.parseFloat(itemForm.amount.replaceAll(',', '.').replaceAll(/[^\d.]/g, '')) || 0;
+  const parsedInstallments = Math.max(1, Number.parseInt(itemForm.installments || '1', 10) || 1);
+  const splitCount = Math.max(1, itemForm.splitBetween.length || 1);
+  const installmentPreview = parsedAmount > 0 ? parsedAmount / parsedInstallments : 0;
+  const perPersonPreview = installmentPreview > 0 ? installmentPreview / splitCount : 0;
 
   /* ─── Save item ─── */
   const handleSaveItem = async () => {
@@ -380,19 +428,39 @@ const CardDetail: React.FC = () => {
       toast({ title: 'Erro', description: 'Informe um valor válido.', variant: 'destructive' });
       return;
     }
+
+    const installments = Math.max(1, Number.parseInt(itemForm.installments || '1', 10) || 1);
+    if (installments > 60) {
+      toast({ title: 'Erro', description: 'Número de parcelas deve ser no máximo 60.', variant: 'destructive' });
+      return;
+    }
+
+    const fallbackOwner = itemForm.owner || (safePeople[0] ?? 'Eu');
+    let selectedPeople = itemForm.splitBetween.length > 0 ? itemForm.splitBetween : [fallbackOwner];
+    if (editingItem) {
+      selectedPeople = [fallbackOwner];
+    }
+
     const payload = {
       description: desc,
       amount: amtNum,
       date: itemForm.date,
       category: itemForm.category,
-      owner: itemForm.owner || (safePeople[0] ?? ''),
+      owner: selectedPeople[0] || (safePeople[0] ?? 'Eu'),
     };
     if (editingItem) {
       await updateInvoiceItem(card.id, editingItem.id, payload);
       toast({ title: 'Atualizado', description: 'Item atualizado.' });
     } else {
-      await addInvoiceItem(card.id, payload);
-      toast({ title: 'Adicionado', description: 'Item adicionado.' });
+      await addInvoiceItem(card.id, payload, installments, selectedPeople);
+      if (installments > 1 || selectedPeople.length > 1) {
+        toast({
+          title: 'Lançamento criado',
+          description: `Compra distribuída em ${installments}x e ${selectedPeople.length} pessoa(s).`,
+        });
+      } else {
+        toast({ title: 'Adicionado', description: 'Item adicionado.' });
+      }
     }
     setItemDialogOpen(false);
   };
@@ -409,6 +477,17 @@ const CardDetail: React.FC = () => {
   const handleTogglePaid = async () => {
     if (!card) return;
     await toggleInvoicePaid(card.id, viewMonth, viewYear);
+  };
+
+  const handleImportItems = async (items: Omit<InvoiceItem, 'id'>[]) => {
+    if (!card) return;
+    await Promise.all(
+      items.map((item) => addInvoiceItem(card.id, item)),
+    );
+    toast({
+      title: 'Importação concluída',
+      description: `${items.length} lançamento(s) adicionados na fatura de ${MONTH_NAMES[viewMonth]}.`,
+    });
   };
 
   /* ─── Edit card preview helpers ─── */
@@ -555,7 +634,7 @@ const CardDetail: React.FC = () => {
                   const owner = item.owner || 'Sem titular';
                   ownerTotals[owner] = (ownerTotals[owner] ?? 0) + item.amount;
                 }
-                return Object.entries(ownerTotals).map(([owner, total], i) => (
+                return Object.entries(ownerTotals).map(([owner, total]) => (
                   <div
                     key={owner}
                     className="flex items-center gap-1.5 bg-muted/60 rounded-full px-3 py-1.5"
@@ -581,7 +660,7 @@ const CardDetail: React.FC = () => {
           <Button
             variant="outline"
             className="flex-1 h-11 rounded-xl gap-2"
-            onClick={() => toast({ title: 'Em breve', description: 'Importar CSV em breve.' })}
+            onClick={() => setImportDialogOpen(true)}
           >
             <Upload className="w-4 h-4" />
             <span className="text-sm">Importar</span>
@@ -589,7 +668,7 @@ const CardDetail: React.FC = () => {
           <Button
             variant="outline"
             className="flex-1 h-11 rounded-xl gap-2"
-            onClick={() => toast({ title: 'Em breve', description: 'Exportar PDF em breve.' })}
+            onClick={() => setExportDialogOpen(true)}
           >
             <FileText className="w-4 h-4" />
             <span className="text-sm">Exportar</span>
@@ -614,9 +693,13 @@ const CardDetail: React.FC = () => {
                 const fmtDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
                 const catLabel = CATEGORY_LABELS[item.category ?? ''] ?? item.category ?? '';
                 const catChip = CATEGORY_CHIP_COLORS[item.category ?? ''] ?? 'bg-gray-500/20 text-gray-400';
-                const installment = item.installmentInfo
+                const hasInstallmentData =
+                  typeof item.installmentInfo?.currentInstallment === 'number' &&
+                  typeof item.installmentInfo?.totalInstallments === 'number';
+                const installment = hasInstallmentData
                   ? ` (${item.installmentInfo.currentInstallment}/${item.installmentInfo.totalInstallments})`
                   : '';
+                const showInstallmentSuffix = installment && !item.description.includes(installment);
                 const ownerIdx = safePeople.indexOf(item.owner ?? '');
                 const ownerChip = OWNER_COLORS[ownerIdx >= 0 ? ownerIdx % OWNER_COLORS.length : 0];
 
@@ -629,7 +712,7 @@ const CardDetail: React.FC = () => {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="text-base font-bold text-foreground truncate">
-                          {item.description}{installment}
+                          {item.description}{showInstallmentSuffix ? installment : ''}
                         </p>
                         <div className="flex items-center gap-1 mt-1 flex-wrap">
                           <span className="text-xs text-muted-foreground">{fmtDate}</span>
@@ -797,55 +880,128 @@ const CardDetail: React.FC = () => {
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Editar lançamento' : 'Novo lançamento'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <Input
-              placeholder="Descrição (ex: Supermercado)"
-              value={itemForm.description}
-              onChange={(e) => setItemForm(p => ({ ...p, description: e.target.value }))}
-              className="input-finance"
-            />
-            <Input
-              placeholder="Valor (ex: 150,00)"
-              inputMode="decimal"
-              value={itemForm.amount}
-              onChange={(e) => {
-                const v = e.target.value.replaceAll(/[^\d,]/g, '');
-                setItemForm(p => ({ ...p, amount: v }));
-              }}
-              className="input-finance"
-            />
-            <div>
-              <p className="text-sm font-medium text-foreground mb-1">Data</p>
+          <div className="space-y-4 py-2">
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs text-blue-200">
+              Preencha descrição, valor e data. Em novo lançamento você pode parcelar e dividir automaticamente entre pessoas cadastradas.
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">Descrição da compra</p>
               <Input
-                type="date"
-                value={itemForm.date}
-                onChange={(e) => setItemForm(p => ({ ...p, date: e.target.value }))}
+                placeholder="Ex: Supermercado, Farmácia, Assinatura"
+                value={itemForm.description}
+                onChange={(e) => setItemForm(p => ({ ...p, description: e.target.value }))}
                 className="input-finance"
               />
             </div>
-            <Select
-              value={itemForm.category}
-              onValueChange={(v) => setItemForm(p => ({ ...p, category: v }))}
-            >
-              <SelectTrigger className="input-finance"><SelectValue placeholder="Categoria" /></SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>{CATEGORY_LABELS[cat]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {safePeople.length > 0 && (
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-foreground">Valor total (R$)</p>
+                <Input
+                  placeholder="Ex: 150,00"
+                  inputMode="decimal"
+                  value={itemForm.amount}
+                  onChange={(e) => {
+                    const v = e.target.value.replaceAll(/[^\d,]/g, '');
+                    setItemForm(p => ({ ...p, amount: v }));
+                  }}
+                  className="input-finance"
+                />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-foreground">Data da compra</p>
+                <Input
+                  type="date"
+                  value={itemForm.date}
+                  onChange={(e) => setItemForm(p => ({ ...p, date: e.target.value }))}
+                  className="input-finance"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">Categoria</p>
               <Select
-                value={itemForm.owner}
-                onValueChange={(v) => setItemForm(p => ({ ...p, owner: v }))}
+                value={itemForm.category}
+                onValueChange={(v) => setItemForm(p => ({ ...p, category: v }))}
               >
-                <SelectTrigger className="input-finance"><SelectValue placeholder="Responsável" /></SelectTrigger>
+                <SelectTrigger className="input-finance"><SelectValue placeholder="Categoria" /></SelectTrigger>
                 <SelectContent>
-                  {safePeople.map((person) => (
-                    <SelectItem key={person} value={person}>{person}</SelectItem>
+                  {CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>{CATEGORY_LABELS[cat]}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {!editingItem && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-foreground">Parcelamento</p>
+                <Input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={itemForm.installments}
+                  onChange={(e) => {
+                    const next = String(Math.max(1, Math.min(60, Number.parseInt(e.target.value || '1', 10) || 1)));
+                    setItemForm(p => ({ ...p, installments: next }));
+                  }}
+                  className="input-finance"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {parsedInstallments}x de {formatCurrency(installmentPreview || 0)}
+                </p>
+              </div>
+            )}
+
+            {safePeople.length > 0 && (
+              <div className="space-y-2">
+                {editingItem ? (
+                  <>
+                    <p className="text-sm font-medium text-foreground">Responsável</p>
+                    <Select
+                      value={itemForm.owner}
+                      onValueChange={(v) => setItemForm(p => ({ ...p, owner: v, splitBetween: [v] }))}
+                    >
+                      <SelectTrigger className="input-finance"><SelectValue placeholder="Responsável" /></SelectTrigger>
+                      <SelectContent>
+                        {safePeople.map((person) => (
+                          <SelectItem key={person} value={person}>{person}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-foreground">Dividir entre pessoas</p>
+                    <div className="flex flex-wrap gap-2">
+                      {safePeople.map((person) => {
+                        const selected = itemForm.splitBetween.includes(person);
+                        return (
+                          <button
+                            key={person}
+                            type="button"
+                            onClick={() => toggleSplitPerson(person)}
+                            className={`px-3 py-1.5 rounded-full text-sm border transition-all ${
+                              selected
+                                ? 'border-primary bg-primary/15 text-primary'
+                                : 'border-border bg-background text-muted-foreground hover:border-primary/40'
+                            }`}
+                          >
+                            {person}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {splitCount > 1
+                        ? `Cada pessoa paga ${formatCurrency(perPersonPreview || 0)} por parcela.`
+                        : `Responsável único: ${itemForm.splitBetween[0] ?? itemForm.owner ?? safePeople[0]}`}
+                    </p>
+                  </>
+                )}
+              </div>
             )}
           </div>
           <DialogFooter>
@@ -877,6 +1033,26 @@ const CardDetail: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <InvoiceImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        card={card}
+        people={safePeople}
+        month={viewMonth}
+        year={viewYear}
+        onImport={handleImportItems}
+      />
+
+      <PDFExportDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        card={card}
+        items={monthItems}
+        month={viewMonth}
+        year={viewYear}
+        ownerTotals={monthOwnerTotals}
+      />
 
       <BottomNav />
     </div>

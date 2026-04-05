@@ -19,15 +19,15 @@ chmod +x start.sh
 cp .env.example .env
 
 # Iniciar containers
-docker-compose up -d --build
+docker compose --profile dev up --build
 
 # Ver logs
-docker-compose logs -f
+docker compose --profile dev logs -f
 ```
 
 ## Acessar a Aplicação
 
-- **Frontend**: http://localhost
+- **Frontend**: http://localhost:8080
 - **Backend API**: http://localhost:8000
 - **Documentação**: http://localhost:8000/api/docs
 - **Banco de Dados**: localhost:5432
@@ -41,22 +41,22 @@ docker-compose logs -f
 
 ```bash
 # Ver status
-docker-compose ps
+docker compose --profile dev ps
 
 # Ver logs
-docker-compose logs -f
+docker compose --profile dev logs -f
 
 # Parar serviços
-docker-compose down
+docker compose --profile dev down
 
 # Reiniciar
-docker-compose restart
+docker compose --profile dev restart
 
 # Reconstruir
-docker-compose up -d --build
+docker compose --profile dev up --build
 
 # Limpar tudo (CUIDADO: apaga dados)
-docker-compose down -v
+docker compose --profile dev down -v
 ```
 
 ## Estrutura dos Endpoints

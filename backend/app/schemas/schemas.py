@@ -124,6 +124,28 @@ class ResetPasswordRequest(BaseModel):
 class GoogleLoginRequest(BaseModel):
     credential: str  # Google ID token
 
+class GoogleRedirectUrlResponse(BaseModel):
+    auth_url: str
+
+class ImportedInvoiceItem(BaseModel):
+    date: str
+    description: str
+    category: str
+    amount: float
+    owner: str
+    notes: Optional[str] = None
+
+class InvoiceImportTextRequest(BaseModel):
+    content: str
+    card_name: Optional[str] = None
+    people: List[str] = []
+    reference_month: Optional[int] = None
+    reference_year: Optional[int] = None
+
+class InvoiceImportResponse(BaseModel):
+    raw_text: str
+    items: List[ImportedInvoiceItem]
+
 # Income Schemas
 class IncomeBase(BaseModel):
     description: str
@@ -230,6 +252,7 @@ class InvoiceItemBase(BaseModel):
 
 class InvoiceItemCreate(InvoiceItemBase):
     installments: Optional[int] = None
+    split_between: Optional[List[str]] = None
 
 class InvoiceItemUpdate(BaseModel):
     date: Optional[str] = None
