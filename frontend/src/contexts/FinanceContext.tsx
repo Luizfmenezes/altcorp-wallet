@@ -128,16 +128,15 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   );
 
   const [incomes, setIncomes] = useState<Income[]>([]);
-
   const [expenses, setExpenses] = useState<Expense[]>([]);
-
   const [cards, setCards] = useState<Card[]>([]);
 
-  // Helper to update people via API + localStorage fallback
+  // Helper to update people via API + localStorage fallback (AGORA COM VALIDAÇÃO ARRAY)
   const setPeople = (newPeople: string[]) => {
-    setPeopleState(newPeople);
-    localStorage.setItem('altcorp_people', JSON.stringify(newPeople));
-    financeService.savePeople(newPeople).catch(() => { /* silent */ });
+    const validPeople = Array.isArray(newPeople) && newPeople.length > 0 ? newPeople : ['Eu'];
+    setPeopleState(validPeople);
+    localStorage.setItem('altcorp_people', JSON.stringify(validPeople));
+    financeService.savePeople(validPeople).catch(() => { /* silent */ });
   };
 
   const addIncome = async (income: Omit<Income, 'id'>) => {
@@ -282,16 +281,18 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const addPerson = (name: string) => {
-    if (name.trim() && !people.includes(name.trim())) {
-      const newPeople = [...people, name.trim()];
+    const currentPeople = Array.isArray(people) ? people : ['Eu'];
+    if (name.trim() && !currentPeople.includes(name.trim())) {
+      const newPeople = [...currentPeople, name.trim()];
       setPeople(newPeople);
     }
   };
 
   const removePerson = (name: string) => {
+    const currentPeople = Array.isArray(people) ? people : ['Eu'];
     if (name !== 'Eu') {
-      const newPeople = people.filter(p => p !== name);
-      setPeople(newPeople);
+      const newPeople = currentPeople.filter(p => p !== name);
+      setPeople(newPeople.length > 0 ? newPeople : ['Eu']);
     }
   };
 
@@ -356,7 +357,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     
     if (createdCards.length > 0) {
       setCards(prev => {
-        // Remove duplicatas por nome antes de adicionar
         const existingNames = new Set(prev.map(c => c.name.toLowerCase()));
         const toAdd = createdCards.filter(c => !existingNames.has(c.name.toLowerCase()));
         return [...prev, ...toAdd];
@@ -365,12 +365,10 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const getTotalIncome = () => {
-    // Filtra todas as rendas pelo mês/ano de contabilização
-    const displayMonth = selectedMonth + 1; // selectedMonth é 0-based, accounting_month é 1-based
+    const displayMonth = selectedMonth + 1; 
 
     const fixedIncome = incomes
       .filter(i => i.type === 'fixed' && (
-        // Se tem accounting_month, usa ele; senão mantém o comportamento antigo (soma tudo)
         i.accountingMonth ? (i.accountingMonth === displayMonth && i.accountingYear === selectedYear) : true
       ))
       .reduce((sum, i) => sum + i.amount, 0);
@@ -386,7 +384,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const getTotalExpenses = () => {
-    // Card expenses for selected month
     const cardExpenses = cards.reduce((total, card) => {
       return total + card.invoiceItems
         .filter(item => {
@@ -396,7 +393,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         .reduce((sum, item) => sum + item.amount, 0);
     }, 0);
 
-    // Direct expenses for selected month
     const directExpenses = expenses
       .filter(exp => {
         const expDate = new Date(exp.date);
@@ -420,7 +416,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     return getTotalIncome() - getTotalExpenses();
   };
 
-  // Budget Management
   const setBudget = (category: string, limit: number) => {
     setBudgets(prev => {
       const existing = prev.find(
@@ -458,7 +453,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       return { spent: 0, limit: 0, percentage: 0 };
     }
 
-    // Calculate spent from both direct expenses and card expenses
     const directSpent = expenses
       .filter(exp => {
         const expDate = new Date(exp.date);
@@ -489,7 +483,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     return { spent, limit: budget.limit, percentage };
   };
 
-  // Recurring Expenses Logic — chama o backend para processar
   const toggleInvoicePaid = async (cardId: string, month: number, year: number) => {
     const card = cards.find(c => c.id === cardId);
     if (!card) return;
@@ -520,7 +513,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     const today = new Date();
     const currentMonthYear = `${today.getFullYear()}-${today.getMonth()}`;
 
-    // Verifica se já processou este mês (cache local para não chamar toda hora)
     if (lastRecurringCheck === currentMonthYear) {
       return;
     }
@@ -528,7 +520,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       const result = await financeService.processRecurring();
       if (result.created_expenses > 0 || result.created_invoice_items > 0) {
-        // Recarrega os dados para pegar os novos itens criados
         const [freshExpenses, freshCards] = await Promise.all([
           financeService.getExpenses(),
           financeService.getCards(),
@@ -543,7 +534,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   };
 
-  // Get previous month expenses for comparison
   const getPreviousMonthExpenses = () => {
     const prevMonth = selectedMonth === 0 ? 11 : selectedMonth - 1;
     const prevYear = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
@@ -567,11 +557,9 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     return cardExpenses + directExpenses;
   };
 
-  // Get expenses grouped by category
   const getExpensesByCategory = () => {
     const categoryMap: { [key: string]: number } = {};
 
-    // Direct expenses
     expenses
       .filter(exp => {
         const expDate = new Date(exp.date);
@@ -581,7 +569,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         categoryMap[exp.category] = (categoryMap[exp.category] || 0) + exp.amount;
       });
 
-    // Card expenses
     cards.forEach(card => {
       card.invoiceItems
         .filter(item => {
@@ -601,7 +588,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       }));
   };
 
-  // Function to load finance data (called after login)
   const loadFinanceData = async () => {
     try {
       const [loadedIncomes, loadedExpenses, loadedCards] = await Promise.all([
@@ -613,33 +599,39 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       setExpenses(loadedExpenses);
       setCards(loadedCards);
       
-      // Carrega people do backend (fonte de verdade), com fallback para localStorage
+      // Carrega people do backend com fallback rígido (AGORA COM VALIDAÇÃO ARRAY)
       try {
         const backendPeople = await financeService.getPeople();
-        if (backendPeople && backendPeople.length > 0) {
+        if (Array.isArray(backendPeople) && backendPeople.length > 0) {
           setPeopleState(backendPeople);
           localStorage.setItem('altcorp_people', JSON.stringify(backendPeople));
         } else {
-          // Backend vazio: tenta migrar do localStorage para o backend
           const savedPeople = localStorage.getItem('altcorp_people');
           if (savedPeople) {
-            const parsed: string[] = JSON.parse(savedPeople);
-            if (parsed.length > 0) {
+            const parsed = JSON.parse(savedPeople);
+            if (Array.isArray(parsed) && parsed.length > 0) {
               setPeopleState(parsed);
               financeService.savePeople(parsed).catch(() => { /* silent */ });
+            } else {
+              setPeopleState(['Eu']);
             }
+          } else {
+            setPeopleState(['Eu']);
           }
         }
       } catch {
-        // fallback para localStorage
         const savedPeople = localStorage.getItem('altcorp_people');
         if (savedPeople) {
-          try { setPeopleState(JSON.parse(savedPeople)); } catch { /* silent */ }
+          try { 
+            const parsed = JSON.parse(savedPeople);
+            setPeopleState(Array.isArray(parsed) && parsed.length > 0 ? parsed : ['Eu']);
+          } catch { setPeopleState(['Eu']); }
+        } else {
+          setPeopleState(['Eu']);
         }
       }
 
-      // Processa recorrências de rendas para o mês atual
-      const currentMonth = new Date().getMonth() + 1; // 1-based
+      const currentMonth = new Date().getMonth() + 1;
       const currentYear = new Date().getFullYear();
       try {
         const newRecurring = await financeService.processRecurringIncomes(currentMonth, currentYear);
@@ -648,7 +640,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
       } catch { /* silent */ }
 
-      // Processa recorrências após carregar dados
       await checkRecurringExpenses();
     } catch { /* silent */ }
   };
@@ -665,7 +656,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       incomes,
       expenses,
       cards,
-      people,
+      people: Array.isArray(people) ? people : ['Eu'], // BLINDAGEM EXTRA NA SAÍDA
       budgets,
       selectedMonth,
       selectedYear,

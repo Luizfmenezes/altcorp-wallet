@@ -90,7 +90,7 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
-  // Animation — se voltou de sessão pendente, pula animação direto para o topo
+  // Animation
   const [animPhase, setAnimPhase] = useState<'center' | 'rising' | 'top'>(pendingVerify ? 'top' : 'center');
   const [contentVisible, setContentVisible] = useState(pendingVerify ? true : false);
 
@@ -105,12 +105,8 @@ const Login: React.FC = () => {
   // Keyboard detection
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   
-  // Google login button ref
-  const googleBtnRef = useRef<HTMLDivElement>(null);
-  // Ref estável para o callback do Google (evita closure stale)
+  // Ref estável para o callback do Google
   const googleCallbackRef = useRef<(response: { credential: string }) => void>(() => {});
-  // Se o GSI está disponível e inicializado
-  const [googleReady, setGoogleReady] = useState(false);
 
   // Viewport handling
   useEffect(() => {
@@ -170,7 +166,7 @@ const Login: React.FC = () => {
     }
   }, [resendCooldown]);
 
-  // ====== HANDLERS ======
+  // ====== GOOGLE LOGIN HANDLERS ======
 
   const handleGoogleCallback = useCallback(async (response: { credential: string }) => {
     setIsLoading(true);
@@ -189,51 +185,43 @@ const Login: React.FC = () => {
     }
   }, [googleLogin, navigate, toast]);
 
-  // Google login button initialization
   useEffect(() => {
-    // Atualiza o ref sempre que o callback muda
     googleCallbackRef.current = handleGoogleCallback;
   }, [handleGoogleCallback]);
 
-  // Inicializa o GSI sem renderButton — usamos botão customizado
-  // Só inicializa se VITE_GOOGLE_CLIENT_ID estiver configurado
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
   const googleEnabled = Boolean(googleClientId);
 
+  // Inicializa o GSI
   useEffect(() => {
     if (!googleEnabled || !window.google) return;
-
     try {
       window.google.accounts.id.initialize({
         client_id: googleClientId,
         callback: (resp: { credential: string }) => googleCallbackRef.current(resp),
-        use_fedcm_for_prompt: false,
+        // Adicionando ux_mode ajuda em alguns PWAs (opcional, popup é o padrão)
+        ux_mode: 'popup', 
       });
-      setGoogleReady(true);
     } catch (e) {
       console.warn('Google login not configured:', e);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contentVisible, googleEnabled]);
+  }, [googleEnabled, googleClientId]);
 
-  // Clique no botão Google customizado — abre popup via renderButton num div oculto
-  const handleGoogleBtnClick = useCallback(() => {
-    if (!googleEnabled || !window.google || !googleBtnRef.current) return;
-
-    // Renderiza o botão real num div oculto e clica automaticamente
-    googleBtnRef.current.innerHTML = '';
-    window.google.accounts.id.renderButton(googleBtnRef.current, {
+  // Callback ref para renderizar o botão físico na tela
+  const renderGoogleButton = useCallback((element: HTMLDivElement | null) => {
+    if (!element || !googleEnabled || !window.google) return;
+    window.google.accounts.id.renderButton(element, {
       theme: 'filled_black',
       size: 'large',
-      width: 300,
+      width: element.offsetWidth || 300,
       shape: 'pill',
       text: 'continue_with',
       locale: 'pt-BR',
     });
-    // Simula clique no botão gerado pelo GSI
-    const btn = googleBtnRef.current.querySelector('div[role="button"]') as HTMLElement | null;
-    btn?.click();
-  }, []);
+  }, [googleEnabled]);
+
+
+  // ====== AUTH HANDLERS ======
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -295,7 +283,6 @@ const Login: React.FC = () => {
         setView('verify-email');
         toast({ title: 'Conta criada!', description: 'Verifique o código enviado para seu email.' });
       } else {
-        // Primeiro usuário - login automático
         const success = await login(regUsername, regPassword);
         if (success) {
           toast({ title: 'Bem-vindo!', description: 'Conta de administrador criada.' });
@@ -419,13 +406,8 @@ const Login: React.FC = () => {
 
   const getInitial = (name: string) => name?.charAt(0)?.toUpperCase() || 'U';
 
-  // ====== INPUT STYLE ======
   const inputClass = "h-12 rounded-xl bg-white/10 border-white/10 text-white placeholder:text-white/40 focus:border-white/30 focus:ring-white/20";
-
-  // ====== SPINNER ======
-  const Spinner = () => (
-    <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-  );
+  const Spinner = () => <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />;
 
   // ====== RENDER VIEWS ======
 
@@ -433,7 +415,6 @@ const Login: React.FC = () => {
     <div className="w-full max-w-sm flex flex-col items-center gap-4">
       {lastUser ? (
         <>
-          {/* Avatar / Foto */}
           <div className="w-24 h-24 rounded-full bg-white/10 border-2 border-white/30 flex items-center justify-center overflow-hidden backdrop-blur-sm shadow-xl">
             {lastUser.profile_photo ? (
               <img src={lastUser.profile_photo} alt={lastUser.name} className="w-full h-full object-cover" />
@@ -463,7 +444,8 @@ const Login: React.FC = () => {
           <Button onClick={() => setView('register')} variant="ghost" className="w-full h-11 rounded-2xl font-medium text-sm text-white/70 hover:text-white hover:bg-white/10 border border-white/20">
             <UserPlus className="w-4 h-4 mr-2" /> Criar conta
           </Button>
-          {/* Google Login — só exibe se VITE_GOOGLE_CLIENT_ID estiver configurado */}
+
+          {/* Botão Oficial do Google (Nativo) */}
           {googleEnabled && (
             <div className="w-full mt-1">
               <div className="flex items-center gap-3 mb-3">
@@ -471,25 +453,7 @@ const Login: React.FC = () => {
                 <span className="text-white/40 text-xs">ou</span>
                 <div className="flex-1 h-px bg-white/20" />
               </div>
-              {/* Botão Google customizado — 100% responsivo */}
-              <button
-                type="button"
-                onClick={handleGoogleBtnClick}
-                disabled={!googleReady || isLoading}
-                className="w-full h-12 rounded-full bg-white text-gray-700 font-medium text-sm flex items-center justify-center gap-3 shadow hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50"
-              >
-                <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                  <g>
-                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-                  </g>
-                </svg>
-                Continuar com o Google
-              </button>
-              {/* Div oculto necessário para o GSI processar o token */}
-              <div ref={googleBtnRef} className="hidden" />
+              <div className="w-full flex justify-center" ref={renderGoogleButton} />
             </div>
           )}
         </>
@@ -551,31 +515,15 @@ const Login: React.FC = () => {
           {isLoading ? <Spinner /> : <><LogIn className="w-5 h-5 mr-2" /> Entrar</>}
         </Button>
 
-        {/* Google Login — só exibe se VITE_GOOGLE_CLIENT_ID estiver configurado */}
+        {/* Botão Oficial do Google (Nativo) */}
         {googleEnabled && (
           <>
-            <div className="flex items-center gap-3 mt-1">
+            <div className="flex items-center gap-3 mt-1 mb-1">
               <div className="flex-1 h-px bg-white/20" />
               <span className="text-white/40 text-xs">ou</span>
               <div className="flex-1 h-px bg-white/20" />
             </div>
-            {/* Botão Google customizado — 100% responsivo */}
-            <button
-              type="button"
-              onClick={handleGoogleBtnClick}
-              disabled={!googleReady || isLoading}
-              className="w-full h-12 rounded-full bg-white text-gray-700 font-medium text-sm flex items-center justify-center gap-3 shadow hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50"
-            >
-              <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                <g>
-                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-                </g>
-              </svg>
-              Continuar com o Google
-            </button>
+            <div className="w-full flex justify-center" ref={renderGoogleButton} />
           </>
         )}
 
@@ -622,12 +570,6 @@ const Login: React.FC = () => {
               required
             />
           </div>
-          {regUsername && regUsername.length < 3 && (
-            <p className="text-amber-400 text-xs -mt-1 pl-1">Mínimo 3 caracteres</p>
-          )}
-          {regUsername.length >= 3 && (
-            <p className="text-white/30 text-xs -mt-1 pl-1">Apenas letras, números e _ · {30 - regUsername.length} restantes</p>
-          )}
 
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
@@ -641,9 +583,6 @@ const Login: React.FC = () => {
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
             <Input type="password" placeholder="Confirmar senha" value={regConfirmPassword} onChange={(e) => setRegConfirmPassword(e.target.value)} className={`${inputClass} pl-10`} required />
           </div>
-          {regPassword && regConfirmPassword && regPassword !== regConfirmPassword && (
-            <p className="text-red-400 text-xs">As senhas não conferem</p>
-          )}
         </div>
 
         <Button type="submit" className="w-full h-12 rounded-2xl font-semibold text-base bg-white text-black hover:bg-white/90 shadow-lg" disabled={isLoading}>
@@ -677,7 +616,6 @@ const Login: React.FC = () => {
             </p>
           </div>
 
-          {/* Aviso quando restaurado do cache (sessão salva) */}
           {pendingVerify && (
             <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
               <RefreshCw className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -775,9 +713,6 @@ const Login: React.FC = () => {
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
               <Input type="password" placeholder="Confirmar nova senha" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} className={`${inputClass} pl-10`} required />
             </div>
-            {newPassword && confirmNewPassword && newPassword !== confirmNewPassword && (
-              <p className="text-red-400 text-xs">As senhas não conferem</p>
-            )}
           </div>
 
           <Button type="submit" className="w-full h-12 rounded-2xl font-semibold text-base bg-white text-black hover:bg-white/90 shadow-lg" disabled={isLoading || resetCode.length !== 6}>
@@ -794,7 +729,6 @@ const Login: React.FC = () => {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden select-none">
-      {/* ====== BACKGROUND CAROUSEL ====== */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0">
           <img src={INTRO_IMAGES[currentImage]} alt="" className="w-full h-full object-cover object-center" draggable={false} />
@@ -805,14 +739,12 @@ const Login: React.FC = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/80" />
       </div>
 
-      {/* ====== CAROUSEL INDICATORS ====== */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2">
         {INTRO_IMAGES.map((_, idx) => (
           <span key={idx} className={`block rounded-full transition-all duration-500 ${idx === currentImage ? 'w-6 h-2 bg-white' : 'w-2 h-2 bg-white/40'}`} />
         ))}
       </div>
 
-      {/* ====== ANIMATED LOGO ====== */}
       <div
         className="absolute left-0 right-0 z-10 flex flex-col items-center transition-all ease-[cubic-bezier(0.22,1,0.36,1)]"
         style={{
@@ -840,7 +772,6 @@ const Login: React.FC = () => {
         </div>
       </div>
 
-      {/* ====== MAIN CONTENT ====== */}
       <div
         className={`relative z-10 flex flex-col items-center px-6 overflow-y-auto transition-all duration-700 ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'} ${keyboardOpen ? 'justify-start pt-6 pb-4' : 'justify-end pb-12 pt-40 md:justify-center md:pt-36 md:pb-16'}`}
         style={{ minHeight: 'calc(var(--vh, 1vh) * 100)' }}

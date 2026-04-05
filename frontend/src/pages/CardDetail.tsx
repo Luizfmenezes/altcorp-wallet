@@ -222,6 +222,9 @@ const CardDetail: React.FC = () => {
   } = useFinance();
   const { toast } = useToast();
 
+  // BLINDAGEM EXTRA CONTRA ERROS DE MAP
+  const safePeople = Array.isArray(people) && people.length > 0 ? people : ['Eu'];
+
   const card = cards.find(c => c.id === id);
 
   /* ─── Mes visualizado ─── */
@@ -346,10 +349,10 @@ const CardDetail: React.FC = () => {
       amount: '',
       date: `${viewYear}-${mm}-${dd}`,
       category: 'Outros',
-      owner: people[0] ?? '',
+      owner: safePeople[0] ?? '',
     });
     setItemDialogOpen(true);
-  }, [viewMonth, viewYear, people]);
+  }, [viewMonth, viewYear, safePeople]);
 
   /* ─── Open edit item ─── */
   const openEditItem = useCallback((item: InvoiceItem) => {
@@ -359,10 +362,10 @@ const CardDetail: React.FC = () => {
       amount: item.amount.toFixed(2).replace('.', ','),
       date: item.date,
       category: item.category ?? 'Outros',
-      owner: item.owner ?? (people[0] ?? ''),
+      owner: item.owner ?? (safePeople[0] ?? ''),
     });
     setItemDialogOpen(true);
-  }, [people]);
+  }, [safePeople]);
 
   /* ─── Save item ─── */
   const handleSaveItem = async () => {
@@ -382,7 +385,7 @@ const CardDetail: React.FC = () => {
       amount: amtNum,
       date: itemForm.date,
       category: itemForm.category,
-      owner: itemForm.owner || (people[0] ?? ''),
+      owner: itemForm.owner || (safePeople[0] ?? ''),
     };
     if (editingItem) {
       await updateInvoiceItem(card.id, editingItem.id, payload);
@@ -614,7 +617,7 @@ const CardDetail: React.FC = () => {
                 const installment = item.installmentInfo
                   ? ` (${item.installmentInfo.currentInstallment}/${item.installmentInfo.totalInstallments})`
                   : '';
-                const ownerIdx = people.indexOf(item.owner ?? '');
+                const ownerIdx = safePeople.indexOf(item.owner ?? '');
                 const ownerChip = OWNER_COLORS[ownerIdx >= 0 ? ownerIdx % OWNER_COLORS.length : 0];
 
                 return (
@@ -831,14 +834,14 @@ const CardDetail: React.FC = () => {
                 ))}
               </SelectContent>
             </Select>
-            {people.length > 0 && (
+            {safePeople.length > 0 && (
               <Select
                 value={itemForm.owner}
                 onValueChange={(v) => setItemForm(p => ({ ...p, owner: v }))}
               >
                 <SelectTrigger className="input-finance"><SelectValue placeholder="Responsável" /></SelectTrigger>
                 <SelectContent>
-                  {people.map((person) => (
+                  {safePeople.map((person) => (
                     <SelectItem key={person} value={person}>{person}</SelectItem>
                   ))}
                 </SelectContent>

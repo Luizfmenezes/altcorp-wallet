@@ -10,6 +10,11 @@ export default defineConfig({
     hmr: {
       overlay: false,
     },
+    // Adicionamos os cabeçalhos para liberar a comunicação com o pop-up do Google
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+      "Cross-Origin-Embedder-Policy": "unsafe-none",
+    },
   },
   plugins: [react()],
   resolve: {
