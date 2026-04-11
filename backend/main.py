@@ -23,12 +23,34 @@ models.Base.metadata.create_all(bind=engine)
 def ensure_runtime_schema_updates() -> None:
     """Aplica ajustes simples de schema necessários em bases já existentes."""
     statements = [
+        """
+        DO $$
+        BEGIN
+            CREATE TYPE frequency_type AS ENUM ('monthly', 'weekly');
+        EXCEPTION
+            WHEN duplicate_object THEN NULL;
+        END
+        $$
+        """,
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_identity_change_at TIMESTAMPTZ",
+        "ALTER TABLE cards ADD COLUMN IF NOT EXISTS closing_day INTEGER",
+        "ALTER TABLE cards ADD COLUMN IF NOT EXISTS due_day INTEGER",
         "ALTER TABLE cards ADD COLUMN IF NOT EXISTS icon VARCHAR(50)",
         "ALTER TABLE cards ADD COLUMN IF NOT EXISTS credit_limit DOUBLE PRECISION",
         "ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS owner VARCHAR(100) NOT NULL DEFAULT 'Shared'",
         "ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS frequency frequency_type",
         "ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS installment_info JSONB",
+        """
+        CREATE TABLE IF NOT EXISTS paid_invoices (
+            id SERIAL PRIMARY KEY,
+            card_id INTEGER NOT NULL REFERENCES cards(id),
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            month INTEGER NOT NULL,
+            year INTEGER NOT NULL,
+            paid_at TIMESTAMPTZ DEFAULT NOW()
+        )
+        """,
     ]
     with engine.begin() as connection:
         for statement in statements:
