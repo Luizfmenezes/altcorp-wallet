@@ -23,7 +23,12 @@ models.Base.metadata.create_all(bind=engine)
 def ensure_runtime_schema_updates() -> None:
     """Aplica ajustes simples de schema necessários em bases já existentes."""
     statements = [
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_identity_change_at TIMESTAMPTZ"
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_identity_change_at TIMESTAMPTZ",
+        "ALTER TABLE cards ADD COLUMN IF NOT EXISTS icon VARCHAR(50)",
+        "ALTER TABLE cards ADD COLUMN IF NOT EXISTS credit_limit DOUBLE PRECISION",
+        "ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS owner VARCHAR(100) NOT NULL DEFAULT 'Shared'",
+        "ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS installment_info JSONB",
     ]
     with engine.begin() as connection:
         for statement in statements:
