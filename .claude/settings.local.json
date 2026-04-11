@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose:*)",
+      "Bash(bun add:*)",
+      "Bash(npm install:*)",
+      "Bash(ls -la .env*)",
+      "Bash(find . -maxdepth 3 -name \".env*\" -not -path \"*/node_modules/*\" -not -path \"*/.git/*\")",
+      "Bash(rm -f backend/.env backend/.env.example frontend/.env.development frontend/.env.production frontend/.env.example)",
+      "Bash(ls backend/.env*)",
+      "Bash(ls frontend/.env*)",
+      "Bash(rm -f backend/.compose.dev.rendered.yml backend/.compose.rendered.yml)",
+      "Bash(ls backend/.compose*)"
+    ]
+  }
+}

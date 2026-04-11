@@ -6,9 +6,6 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import authService from '@/services/authService';
-// Imports para o funcionamento nativo no App Android
-import { GoogleAuth } from '@capacitor-community/google-signin';
-import { Capacitor } from '@capacitor/core';
 
 const INTRO_IMAGES = ['/intro1.png', '/intro2.png', '/intro3.png'];
 
@@ -35,13 +32,6 @@ const Login: React.FC = () => {
   const { login, verifyEmail: ctxVerifyEmail, googleLogin, logout } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  // --- 1. INICIALIZAÇÃO MOBILE (Sempre dentro do componente) ---
-  useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
-      GoogleAuth.initialize().catch(err => console.warn('Erro ao inicializar GoogleAuth:', err));
-    }
-  }, []);
 
   // Estados de visualização e campos
   const [view, setView] = useState<AuthView>('welcome');
@@ -164,7 +154,7 @@ const Login: React.FC = () => {
 
   useEffect(() => {
     const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!googleClientId || Capacitor.isNativePlatform()) return;
+    if (!googleClientId) return;
 
     let attempts = 0;
     const pollGoogle = () => {
@@ -184,33 +174,13 @@ const Login: React.FC = () => {
     pollGoogle();
   }, []);
 
-  // --- LÓGICA DE CLIQUE NO GOOGLE (HÍBRIDA) ---
   const startGoogleSignIn = useCallback(async () => {
-    if (Capacitor.isNativePlatform()) {
-      // FLUXO APP ANDROID
-      try {
-        setIsLoading(true);
-        const result = await GoogleAuth.signIn();
-        const success = await googleLogin(result.authentication.idToken);
-        if (success) {
-          toast({ title: 'Bem-vindo!', description: 'Login realizado via App.' });
-          navigate('/dashboard');
-        }
-      } catch (error: any) {
-        console.error("Native Login Error:", error);
-        toast({ title: 'Aviso', description: 'Login cancelado.', variant: 'destructive' });
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      // FLUXO NAVEGADOR
-      if (!googleReady || !globalThis.google) {
-        toast({ title: 'Aguarde', description: 'Serviço de login carregando...', variant: 'destructive' });
-        return;
-      }
-      globalThis.google.accounts.id.prompt();
+    if (!googleReady || !globalThis.google) {
+      toast({ title: 'Aguarde', description: 'Serviço de login carregando...', variant: 'destructive' });
+      return;
     }
-  }, [googleReady, googleLogin, navigate, toast]);
+    globalThis.google.accounts.id.prompt();
+  }, [googleReady, toast]);
 
   // Handlers Gerais
   const handleLogin = async (e: React.FormEvent) => {

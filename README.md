@@ -28,11 +28,9 @@ Arquitetura em containers Docker com orquestração via Docker Compose.
 - Docker Compose 2.0+
 - Git
 
-## 🚀 Instalação e Deployment
+## 🚀 Instalação
 
-Ver guia completo em [DEPLOYMENT.md](./DEPLOYMENT.md)
-
-### Quick Start (Produção)
+### Quick Start
 
 ```bash
 # 1. Clone o repositório

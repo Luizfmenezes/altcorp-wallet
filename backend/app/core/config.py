@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     # API
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
-    DEBUG: bool = True
+    DEBUG: bool = False
     
     # Security
     SECRET_KEY: str = "your-secret-key-change-in-production-min-32-chars"

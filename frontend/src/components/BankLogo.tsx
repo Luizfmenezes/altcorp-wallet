@@ -39,23 +39,45 @@ const BankLogo: React.FC<BankLogoProps> = ({
       );
     }
 
-    // Fallback: sigla com cor do banco
-    const fontSize = bank.icon.length <= 2 ? size * 0.42 : size * 0.32;
+    // Fallback: monograma estilizado com cor do banco
+    const len = bank.icon.length;
+    const fontSize = len <= 2 ? size * 0.46 : len === 3 ? size * 0.34 : size * 0.26;
+    const radius = Math.max(6, size * 0.22);
     return (
       <div
-        className={`flex items-center justify-center rounded-lg font-extrabold select-none ${className}`}
+        className={`relative flex items-center justify-center select-none overflow-hidden ${className}`}
         style={{
           width: size,
           height: size,
-          backgroundColor: bank.color,
-          color: bank.textColor,
-          fontSize,
-          letterSpacing: '-0.02em',
-          lineHeight: 1,
+          borderRadius: radius,
+          background: `linear-gradient(135deg, ${bank.color} 0%, ${bank.color} 55%, rgba(0,0,0,0.18) 100%)`,
+          boxShadow: `inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(0,0,0,0.18), 0 1px 2px rgba(0,0,0,0.18)`,
         }}
         title={bank.name}
       >
-        {bank.icon}
+        <span
+          style={{
+            color: bank.textColor,
+            fontSize,
+            fontWeight: 800,
+            letterSpacing: len <= 2 ? '-0.04em' : '-0.02em',
+            lineHeight: 1,
+            textShadow: '0 1px 0 rgba(0,0,0,0.12)',
+            fontFamily: '"SF Pro Display", "Inter", system-ui, sans-serif',
+          }}
+        >
+          {bank.icon}
+        </span>
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: radius,
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)',
+            pointerEvents: 'none',
+          }}
+        />
       </div>
     );
   }
