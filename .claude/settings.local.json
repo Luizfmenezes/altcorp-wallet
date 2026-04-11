@@ -10,7 +10,10 @@
       "Bash(ls backend/.env*)",
       "Bash(ls frontend/.env*)",
       "Bash(rm -f backend/.compose.dev.rendered.yml backend/.compose.rendered.yml)",
-      "Bash(ls backend/.compose*)"
+      "Bash(ls backend/.compose*)",
+      "Bash(find \"C:\\\\Users\\\\Administrador\\\\Documents\\\\PROJETOS\\\\altcorp-wallet/frontend/src\" -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" \\\\\\) -exec grep -l \"BankLogo\\\\|BRAZILIAN_BANKS\\\\|getBankById\" {} \\\\;)",
+      "Read(//mnt/c/Users/Administrador/Documents/PROJETOS/altcorp-wallet/frontend/dist/**)",
+      "Read(//c//**)"
     ]
   }
 }

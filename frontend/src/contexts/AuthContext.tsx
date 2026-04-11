@@ -29,6 +29,7 @@ interface AuthContextType {
   forgotPassword: (email: string) => Promise<string>;
   resetPassword: (email: string, code: string, newPassword: string, confirmPassword: string) => Promise<string>;
   googleLogin: (credential: string) => Promise<boolean>;
+  setAuthenticatedUser: (apiUser: ApiUser) => void;
   isAuthenticated: boolean;
   isLoading: boolean;
   hasCompletedOnboarding: boolean;
@@ -154,6 +155,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  // Atualiza o estado React com um usuário já autenticado (ex: OAuth redirect)
+  const setAuthenticatedUser = (apiUser: ApiUser) => {
+    setUser({
+      username: apiUser.username,
+      name: apiUser.name,
+      role: apiUser.role,
+      profile_photo: apiUser.profile_photo,
+      avatar_url: apiUser.avatar_url,
+      email_verified: apiUser.email_verified,
+      apiUser,
+    });
+    setHasCompletedOnboarding(apiUser.onboarding_completed);
+  };
+
   const logout = () => {
     authService.logout();
     setUser(null);
@@ -231,8 +246,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
+    <AuthContext.Provider value={{
+      user,
       login,
       register,
       verifyEmail,
@@ -240,7 +255,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       forgotPassword,
       resetPassword,
       googleLogin,
-      logout, 
+      setAuthenticatedUser,
+      logout,
       isAuthenticated: !!user,
       isLoading,
       hasCompletedOnboarding,

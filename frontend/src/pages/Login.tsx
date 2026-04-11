@@ -15,7 +15,7 @@ const VERIFY_SESSION_KEY = 'altcorp_verify_pending';
 const VERIFY_SESSION_TTL_MS = 30 * 60 * 1000;
 
 const Login: React.FC = () => {
-  const { login, verifyEmail: ctxVerifyEmail, logout } = useAuth();
+  const { login, verifyEmail: ctxVerifyEmail, logout, setAuthenticatedUser } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -154,15 +154,19 @@ const Login: React.FC = () => {
 
     setIsLoading(true);
     void authService.completeGoogleRedirectLogin(authToken)
-      .then(() => {
+      .then((apiUser) => {
+        // Atualiza o estado React do AuthContext ANTES de navegar.
+        // Sem isso, ProtectedRoute vê isAuthenticated=false e redireciona de volta ao login.
+        setAuthenticatedUser(apiUser);
+        clearAuthParams();
         toast({ title: 'Bem-vindo!', description: 'Login concluído com sucesso.' });
         navigate('/dashboard');
       })
       .catch(() => {
+        clearAuthParams();
         toast({ title: 'Erro', description: 'Falha ao concluir login com Google.', variant: 'destructive' });
       })
       .finally(() => {
-        clearAuthParams();
         setIsLoading(false);
       });
   }, [navigate, toast]);
