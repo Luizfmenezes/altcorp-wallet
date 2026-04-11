@@ -23,15 +23,15 @@ const BankLogo: React.FC<BankLogoProps> = ({
     if (bank.logo && !imgError) {
       return (
         <div
-          className={`flex items-center justify-center rounded-lg overflow-hidden bg-white ${className}`}
+          className={`flex items-center justify-center overflow-hidden bg-white ${className}`}
           style={{ width: size, height: size }}
           title={bank.name}
         >
           <img
             src={bank.logo}
             alt={bank.name}
-            width={size * 0.75}
-            height={size * 0.75}
+            width={size * 0.82}
+            height={size * 0.82}
             className="object-contain"
             onError={() => setImgError(true)}
           />

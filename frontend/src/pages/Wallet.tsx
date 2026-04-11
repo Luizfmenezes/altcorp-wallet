@@ -435,6 +435,7 @@ const Wallet: React.FC = () => {
               if (usagePercent > 80) barColor = 'bg-destructive';
               else if (usagePercent > 50) barColor = 'bg-yellow-500';
               const bankInfo = getBankById(card.icon ?? undefined);
+              const hasBankLogo = !!bankInfo?.logo;
 
               return (
                 <div
@@ -450,10 +451,10 @@ const Wallet: React.FC = () => {
                   />
                   <div className="flex items-center gap-3">
                     <div
-                      className="w-11 h-11 rounded-xl flex items-center justify-center text-white flex-shrink-0 overflow-hidden"
-                      style={{ backgroundColor: card.color }}
+                      className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
+                      style={{ backgroundColor: hasBankLogo ? '#FFFFFF' : card.color }}
                     >
-                      <BankLogo bankId={card.icon} size={32} fallbackType={card.type} />
+                      <BankLogo bankId={card.icon} size={44} fallbackType={card.type} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-foreground truncate text-sm">{card.name}</p>

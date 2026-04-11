@@ -235,10 +235,23 @@ class CardUpdate(BaseModel):
     credit_limit: Optional[float] = None
 
 # Invoice Item Schemas
+class SplitInfo(BaseModel):
+    owners: List[str]
+    owner_share: float
+    group_size: int
+    installment_total: float
+
+    class Config:
+        extra = 'allow'
+
 class InstallmentInfo(BaseModel):
-    current_installment: int
-    total_installments: int
-    original_amount: float
+    current_installment: Optional[int] = None
+    total_installments: Optional[int] = None
+    original_amount: Optional[float] = None
+    split: Optional[SplitInfo] = None
+
+    class Config:
+        extra = 'allow'
 
 class InvoiceItemBase(BaseModel):
     date: str
