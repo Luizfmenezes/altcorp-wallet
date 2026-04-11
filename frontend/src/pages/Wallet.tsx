@@ -452,7 +452,7 @@ const Wallet: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <div
                       className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-                      style={{ backgroundColor: hasBankLogo ? '#FFFFFF' : card.color }}
+                      style={{ backgroundColor: hasBankLogo ? 'transparent' : card.color }}
                     >
                       <BankLogo bankId={card.icon} size={44} fallbackType={card.type} />
                     </div>

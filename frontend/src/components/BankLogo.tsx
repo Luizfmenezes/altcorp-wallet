@@ -22,20 +22,16 @@ const BankLogo: React.FC<BankLogoProps> = ({
     // Se tem SVG local e ainda nao deu erro, mostra a imagem
     if (bank.logo && !imgError) {
       return (
-        <div
-          className={`flex items-center justify-center overflow-hidden bg-white ${className}`}
-          style={{ width: size, height: size }}
+        <img
+          src={bank.logo}
+          alt={bank.name}
           title={bank.name}
-        >
-          <img
-            src={bank.logo}
-            alt={bank.name}
-            width={size * 0.82}
-            height={size * 0.82}
-            className="object-contain"
-            onError={() => setImgError(true)}
-          />
-        </div>
+          width={size}
+          height={size}
+          className={`object-contain ${className}`}
+          style={{ width: size, height: size }}
+          onError={() => setImgError(true)}
+        />
       );
     }
 
