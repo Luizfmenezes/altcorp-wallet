@@ -11,25 +11,11 @@ const INTRO_IMAGES = ['/intro1.png', '/intro2.png', '/intro3.png'];
 
 type AuthView = 'welcome' | 'login' | 'register' | 'verify-email' | 'forgot-password' | 'reset-password';
 
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: Record<string, unknown>) => void;
-          renderButton: (element: HTMLElement, config: Record<string, unknown>) => void;
-          prompt: () => void;
-        };
-      };
-    };
-  }
-}
-
 const VERIFY_SESSION_KEY = 'altcorp_verify_pending';
 const VERIFY_SESSION_TTL_MS = 30 * 60 * 1000;
 
 const Login: React.FC = () => {
-  const { login, verifyEmail: ctxVerifyEmail, googleLogin, logout } = useAuth();
+  const { login, verifyEmail: ctxVerifyEmail, logout } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -62,10 +48,9 @@ const Login: React.FC = () => {
   const [nextImage, setNextImage] = useState(1);
   const [transitioning, setTransitioning] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
-  const [googleReady, setGoogleReady] = useState(false);
 
   const lastUser = authService.getLastLoginUser();
-  const googleCallbackRef = useRef<(response: { credential: string }) => void>(() => {});
+  const googleRedirectHandledRef = useRef(false);
 
   // Recuperar sessão de verificação pendente
   useEffect(() => {
@@ -133,54 +118,65 @@ const Login: React.FC = () => {
   }, [resendCooldown]);
 
   // --- LÓGICA GOOGLE WEB ---
-  const handleGoogleCallback = useCallback(async (response: { credential: string }) => {
-    setIsLoading(true);
-    try {
-      const success = await googleLogin(response.credential);
-      if (success) {
-        toast({ title: 'Bem-vindo!', description: 'Login concluído com sucesso.' });
-        navigate('/dashboard');
-      }
-    } catch {
-      toast({ title: 'Erro', description: 'Falha no login com Google.', variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [googleLogin, navigate, toast]);
-
   useEffect(() => {
-    googleCallbackRef.current = (resp) => void handleGoogleCallback(resp);
-  }, [handleGoogleCallback]);
+    if (googleRedirectHandledRef.current) return;
 
-  useEffect(() => {
-    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!googleClientId) return;
+    const url = new URL(globalThis.location.href);
+    const authToken = url.searchParams.get('auth_token');
+    const authError = url.searchParams.get('auth_error');
+    const authProvider = url.searchParams.get('auth_provider');
 
-    let attempts = 0;
-    const pollGoogle = () => {
-      if (globalThis.google?.accounts?.id) {
-        setGoogleReady(true);
-        globalThis.google.accounts.id.initialize({
-          client_id: googleClientId,
-          callback: (resp: any) => googleCallbackRef.current(resp),
-          ux_mode: 'popup',
-          auto_select: true,
-        });
-        return;
-      }
-      attempts++;
-      if (attempts < 80) setTimeout(pollGoogle, 250);
-    };
-    pollGoogle();
-  }, []);
-
-  const startGoogleSignIn = useCallback(async () => {
-    if (!googleReady || !globalThis.google) {
-      toast({ title: 'Aguarde', description: 'Serviço de login carregando...', variant: 'destructive' });
+    if (authProvider !== 'google' || (!authToken && !authError)) {
       return;
     }
-    globalThis.google.accounts.id.prompt();
-  }, [googleReady, toast]);
+
+    googleRedirectHandledRef.current = true;
+
+    const clearAuthParams = () => {
+      url.searchParams.delete('auth_token');
+      url.searchParams.delete('auth_error');
+      url.searchParams.delete('auth_provider');
+      const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+      globalThis.history.replaceState({}, document.title, nextUrl);
+    };
+
+    if (authError) {
+      clearAuthParams();
+      toast({ title: 'Erro', description: authError, variant: 'destructive' });
+      return;
+    }
+
+    if (!authToken) {
+      clearAuthParams();
+      toast({ title: 'Erro', description: 'Resposta de login Google inválida.', variant: 'destructive' });
+      return;
+    }
+
+    setIsLoading(true);
+    void authService.completeGoogleRedirectLogin(authToken)
+      .then(() => {
+        toast({ title: 'Bem-vindo!', description: 'Login concluído com sucesso.' });
+        navigate('/dashboard');
+      })
+      .catch(() => {
+        toast({ title: 'Erro', description: 'Falha ao concluir login com Google.', variant: 'destructive' });
+      })
+      .finally(() => {
+        clearAuthParams();
+        setIsLoading(false);
+      });
+  }, [navigate, toast]);
+
+  const startGoogleSignIn = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const authUrl = await authService.getGoogleRedirectUrl();
+      globalThis.location.href = authUrl;
+    } catch {
+      toast({ title: 'Erro', description: 'Falha ao iniciar login com Google.', variant: 'destructive' });
+      setIsLoading(false);
+    }
+  }, [toast]);
 
   // Handlers Gerais
   const handleLogin = async (e: React.FormEvent) => {
