@@ -150,6 +150,18 @@ class AuthService {
     return this.persistSessionFromToken(data.access_token, 'google');
   }
 
+  async nativeGoogleLogin(idToken: string): Promise<User> {
+    try {
+      const { data } = await api.post<AuthResponse>('/auth/google-native', {
+        id_token: idToken,
+      });
+
+      return this.persistSessionFromToken(data.access_token, 'google');
+    } catch (error) {
+      throw new Error(this.getErrorMessage(error, 'Erro ao sincronizar login nativo.'));
+    }
+  }
+
   async getGoogleRedirectUrl(): Promise<string> {
     const { data } = await api.post<GoogleRedirectUrlResponse>('/auth/google-login-redirect-url');
     return data.auth_url;

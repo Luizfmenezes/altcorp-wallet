@@ -124,6 +124,9 @@ class ResetPasswordRequest(BaseModel):
 class GoogleLoginRequest(BaseModel):
     credential: str  # Google ID token
 
+class NativeGoogleLogin(BaseModel):
+    id_token: str
+
 class GoogleRedirectUrlResponse(BaseModel):
     auth_url: str
 

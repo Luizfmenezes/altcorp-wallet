@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, LogIn, LogOut, User, Mail, Lock, ArrowLeft, UserPlus, KeyRound, CheckCircle2, RefreshCw } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Eye, EyeOff, LogIn, LogOut, User, Mail, Lock, ArrowLeft, UserPlus, KeyRound, CheckCircle2, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,6 +17,7 @@ const VERIFY_SESSION_TTL_MS = 30 * 60 * 1000;
 const Login: React.FC = () => {
   const { login, verifyEmail: ctxVerifyEmail, logout, setAuthenticatedUser } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
   // Estados de visualização e campos
@@ -48,6 +49,7 @@ const Login: React.FC = () => {
   const [nextImage, setNextImage] = useState(1);
   const [transitioning, setTransitioning] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const lastUser = authService.getLastLoginUser();
   const googleRedirectHandledRef = useRef(false);
@@ -116,6 +118,37 @@ const Login: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [resendCooldown]);
+
+  const performNativeSync = useCallback(async (token: string) => {
+    setIsSyncing(true);
+    try {
+      const apiUser = await authService.nativeGoogleLogin(token);
+      setAuthenticatedUser(apiUser);
+
+      toast({
+        title: 'Sincronizacao concluida',
+        description: 'Acesso liberado via biometria Android.',
+      });
+
+      navigate('/dashboard');
+    } catch (error: any) {
+      setIsSyncing(false);
+      toast({
+        variant: 'destructive',
+        title: 'Erro de sincronizacao',
+        description: error?.message || 'Nao foi possivel validar o acesso nativo.',
+      });
+    }
+  }, [navigate, setAuthenticatedUser, toast]);
+
+  useEffect(() => {
+    const nativeToken = searchParams.get('native_google_token');
+    if (!nativeToken) {
+      return;
+    }
+
+    void performNativeSync(nativeToken);
+  }, [searchParams, performNativeSync]);
 
   // --- LÓGICA GOOGLE WEB ---
   useEffect(() => {
@@ -296,6 +329,18 @@ const Login: React.FC = () => {
       )}
     </div>
   );
+
+  if (isSyncing) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background">
+        <div className="space-y-4 p-8 text-center">
+          <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
+          <h2 className="text-2xl font-bold">AltCorp Wallet</h2>
+          <p className="animate-pulse text-muted-foreground">Sincronizando sua identidade segura...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden select-none">

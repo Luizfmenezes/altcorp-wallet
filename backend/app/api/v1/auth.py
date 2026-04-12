@@ -17,7 +17,7 @@ from app.core.security import verify_password, get_password_hash, create_access_
 from app.core.config import settings
 from app.schemas.schemas import (
     RegisterRequest, VerifyEmailRequest, ResendCodeRequest,
-    ForgotPasswordRequest, ResetPasswordRequest, GoogleLoginRequest,
+    ForgotPasswordRequest, ResetPasswordRequest, GoogleLoginRequest, NativeGoogleLogin,
     GoogleRedirectUrlResponse,
     Token
 )
@@ -440,5 +440,53 @@ def google_login(data: GoogleLoginRequest, db: Session = Depends(get_db)):
             detail="Conta desativada"
         )
     
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/google-native", response_model=Token)
+def google_native_login(data: NativeGoogleLogin, db: Session = Depends(get_db)):
+    """Login/registro via token nativo do Google (Android/iOS)."""
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            data.id_token,
+            google_requests.Request(),
+            settings.GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=300,
+        )
+
+        google_id = idinfo["sub"]
+        email = idinfo.get("email", "").lower()
+        name = idinfo.get("name", "")
+        picture = idinfo.get("picture", "")
+
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Token do Google sem e-mail.",
+            )
+
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token do Google invalido ou expirado.",
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Erro inesperado no login Google nativo: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Erro na verificacao do Google.",
+        )
+
+    user = _upsert_google_user(db=db, google_id=google_id, email=email, name=name, picture=picture)
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Conta desativada"
+        )
+
     access_token = create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
